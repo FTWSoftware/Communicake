@@ -43,17 +43,6 @@
     box-shadow:0 2px 12px rgba(0,0,0,.35);
     z-index:10;flex:0 0 auto;
   }
-  /* Back button lives at the TOP, in the header */
-  #backBtn{
-    flex:0 0 auto;border:none;cursor:pointer;
-    background:#475569;color:var(--ink);
-    border-radius:14px;font-weight:800;
-    font-size:1.4rem;line-height:1;
-    padding:10px 16px;
-    box-shadow:0 3px 0 rgba(0,0,0,.30);
-  }
-  #backBtn:active{transform:translateY(2px);box-shadow:0 1px 0 rgba(0,0,0,.30);}
-  #backBtn[hidden]{display:none;}
   h1{font-size:clamp(1.2rem,4vw,1.7rem);margin:0;font-weight:800;letter-spacing:.5px;}
   #title-sub{color:var(--muted);font-size:clamp(.8rem,2.5vw,1rem);font-weight:500;}
   /* The spoken banner */
@@ -119,7 +108,6 @@
 <body>
 <div id="app">
   <header>
-    <button id="backBtn" aria-label="Go back" hidden>←</button>
     <div style="flex:1">
       <h1 id="title">What do you need?</h1>
       <div id="title-sub">Tap a button — it will speak out loud</div>
@@ -279,8 +267,10 @@ function render(){
   document.getElementById("title").textContent = s.title;
   document.getElementById("title-sub").textContent = s.sub;
   const tiles = s.tiles.slice();
-  // Back button now lives in the header (top), shown on every screen except home.
-  document.getElementById("backBtn").hidden = (current === "home");
+  // Back button is the FIRST tile in the grid (top of the button rows), except on home.
+  if(current !== "home"){
+    tiles.unshift({ label:"Back", emoji:"←", class:"c-back", back:true });
+  }
   grid.innerHTML = "";
   tiles.forEach(t=>{
     const b = document.createElement("button");
@@ -345,6 +335,7 @@ window.addEventListener("orientationchange", ()=>setTimeout(fitLayout,300));
 function onTile(t, el){
   el.classList.add("flash");
   setTimeout(()=>el.classList.remove("flash"), 220);
+  if(t.back){ goBack(); return; }
   if(t.screen){ history.push(current); current = t.screen; render(); return; }
   const sentence = t.say || t.label;
   showBanner(sentence);
@@ -352,8 +343,6 @@ function onTile(t, el){
 }
 function goBack(){ current = history.pop() || "home"; render(); }
 
-/* Header Back button (top of screen) */
-document.getElementById("backBtn").addEventListener("click", goBack);
 
 /* footer year + first paint */
 document.getElementById("year").textContent = new Date().getFullYear();
