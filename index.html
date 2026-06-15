@@ -45,22 +45,38 @@
   }
   h1{font-size:clamp(1.2rem,4vw,1.7rem);margin:0;font-weight:800;letter-spacing:.5px;}
   #title-sub{color:var(--muted);font-size:clamp(.8rem,2.5vw,1rem);font-weight:500;}
-  /* The spoken banner */
-  #say{
-    margin:0;padding:0 20px;
-    max-height:0;overflow:hidden;
-    background:var(--accent);color:#06283d;
-    font-size:clamp(1.1rem,4vw,1.6rem);font-weight:800;text-align:center;
-    transition:max-height .25s ease,padding .25s ease;
-    flex:0 0 auto;
+  /* Portrait: header eats too much vertical space, so shrink it ~60%. */
+  @media (orientation:portrait){
+    header{padding:5px 14px;gap:8px;}
+    h1{font-size:clamp(.85rem,3.2vw,1.1rem);}
+    #title-sub{font-size:clamp(.6rem,2vw,.78rem);}
   }
-  #say.show{max-height:120px;padding:16px 20px;}
+  /* Spoken phrase: compact embedded GREEN box in the header, right of the title */
+  #say{
+    flex:0 1 auto;margin-left:auto;
+    max-width:48%;
+    background:linear-gradient(180deg,#1ca34a,#15803d);
+    color:#f0fff4;
+    font-size:clamp(.8rem,2.4vw,1.1rem);
+    font-weight:800;line-height:1.15;text-align:center;
+    padding:9px 14px;border-radius:14px;
+    border:1px solid rgba(255,255,255,.14);
+    box-shadow:0 4px 0 #0c5128, inset 0 1px 0 rgba(255,255,255,.30); /* depth */
+    opacity:0;transform:translateY(-4px);
+    transition:opacity .2s ease,transform .2s ease;
+  }
+  #say:empty{display:none;}
+  #say.show{opacity:1;transform:none;}
+  @media (orientation:portrait){
+    #say{font-size:clamp(.62rem,2vw,.85rem);padding:6px 10px;max-width:50%;}
+  }
   /* Grid */
-  main{flex:1 1 auto;padding:var(--gap);overflow:hidden;display:flex;align-items:center;justify-content:center;}
+  main{flex:1 1 auto;padding:var(--gap);overflow-y:auto;-webkit-overflow-scrolling:touch;display:flex;flex-direction:column;}
   .grid{
     display:grid;
     gap:var(--gap);
     place-content:center;
+    margin:auto;            /* centers, and allows full scroll if it ever overflows */
   }
   .tile{
     border:none;cursor:pointer;
@@ -112,8 +128,8 @@
       <h1 id="title">What do you need?</h1>
       <div id="title-sub">Tap a button — it will speak out loud</div>
     </div>
+    <div id="say" aria-live="polite"></div>
   </header>
-  <div id="say"></div>
   <main>
     <div class="grid" id="grid"></div>
   </main>
@@ -256,9 +272,7 @@ if("speechSynthesis" in window){ loadVoices(); window.speechSynthesis.onvoicesch
 
 function showBanner(text){
   sayBanner.textContent = text;
-  sayBanner.classList.add("show");
-  clearTimeout(showBanner._t);
-  showBanner._t = setTimeout(()=>sayBanner.classList.remove("show"), 4000);
+  sayBanner.classList.add("show");   /* stays visible until the next phrase */
 }
 
 /* ---------- rendering ---------- */
