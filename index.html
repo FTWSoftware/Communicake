@@ -28,19 +28,32 @@
     width:100vw;height:100vh;overflow:hidden;
     overscroll-behavior:none;
   }
-  /* App fills the screen as a column — works in BOTH orientations, no rotation */
+  /* App fills the screen as a column — works in BOTH orientations, no rotation.
+     position/z-index keep it above the faint background disclaimer text. */
   #app{
+    position:relative;z-index:1;
     width:100vw;height:100vh;
     display:flex;flex-direction:column;overflow:hidden;
   }
   /* Header */
   header{
-    display:flex;align-items:center;gap:14px;
+    display:flex;align-items:center;gap:12px;
     padding:12px 18px;
     background:var(--panel);
     box-shadow:0 2px 12px rgba(0,0,0,.35);
     z-index:10;flex:0 0 auto;
   }
+  /* Back button lives at the TOP, in the header */
+  #backBtn{
+    flex:0 0 auto;border:none;cursor:pointer;
+    background:#475569;color:var(--ink);
+    border-radius:14px;font-weight:800;
+    font-size:1.4rem;line-height:1;
+    padding:10px 16px;
+    box-shadow:0 3px 0 rgba(0,0,0,.30);
+  }
+  #backBtn:active{transform:translateY(2px);box-shadow:0 1px 0 rgba(0,0,0,.30);}
+  #backBtn[hidden]{display:none;}
   h1{font-size:clamp(1.2rem,4vw,1.7rem);margin:0;font-weight:800;letter-spacing:.5px;}
   #title-sub{color:var(--muted);font-size:clamp(.8rem,2.5vw,1rem);font-weight:500;}
   /* The spoken banner */
@@ -86,43 +99,27 @@
   .c-no{background:#b91c1c;}
   .c-back{background:#475569;}
 
-  /* ---------- Pull-up disclaimer drawer ---------- */
-  /* A tiny grab handle sits at the very bottom edge. The legal text lives in a
-     sheet that stays hidden off-screen until the user deliberately drags it up. */
-  #sheet{
+  /* ---------- Faint background disclaimer ----------
+     Sits BEHIND the app (z-index:0). The colour is almost identical to the
+     background, so it's barely visible and only peeks through the gaps around
+     the buttons. It never affects the button layout and isn't interactive. */
+  #disclaimer{
     position:fixed;left:0;right:0;bottom:0;
-    z-index:50;
-    background:var(--panel);
-    border-top:1px solid #334155;
-    border-radius:16px 16px 0 0;
-    box-shadow:0 -8px 24px rgba(0,0,0,.45);
-    transform:translateY(calc(100% - 14px)); /* only the 14px handle peeks out */
-    transition:transform .28s cubic-bezier(.22,.61,.36,1);
-    touch-action:none;
-    padding-bottom:max(10px,env(safe-area-inset-bottom));
+    z-index:0;pointer-events:none;
+    padding:14px 18px;
+    text-align:center;
+    color:#16223c;                 /* nearly the same as --bg (#0f172a) */
+    font-size:.62rem;line-height:1.45;
+    max-width:760px;margin:0 auto;
   }
-  #sheet.open{transform:translateY(0);}
-  #sheet-handle{
-    height:14px;display:flex;align-items:center;justify-content:center;
-    cursor:grab;touch-action:none;
-  }
-  #sheet-handle::before{
-    content:"";width:42px;height:4px;border-radius:4px;
-    background:#475569;opacity:.5;
-  }
-  #sheet-body{
-    padding:6px 18px 16px;
-    text-align:center;color:var(--muted);font-size:.7rem;line-height:1.5;
-    max-height:46vh;overflow:auto;
-  }
-  #sheet-body .brand{font-weight:800;color:var(--ink);font-size:.9rem;letter-spacing:.5px;}
-  #sheet-body .legal{max-width:620px;margin:6px auto 0;}
-  #sheet-body a{color:var(--accent);text-decoration:none;}
+  #disclaimer .brand{font-weight:800;}
+  #disclaimer strong{color:#1c2a47;}
 </style>
 </head>
 <body>
 <div id="app">
   <header>
+    <button id="backBtn" aria-label="Go back" hidden>←</button>
     <div style="flex:1">
       <h1 id="title">What do you need?</h1>
       <div id="title-sub">Tap a button — it will speak out loud</div>
@@ -134,18 +131,12 @@
   </main>
 </div>
 
-<!-- Hidden pull-up disclaimer. Drag the small handle up (or tap it) to reveal. -->
-<div id="sheet" aria-label="Legal and safety information">
-  <div id="sheet-handle" role="button" tabindex="0" aria-label="Pull up for disclaimer"></div>
-  <div id="sheet-body">
-    <div class="brand">Communicake</div>
-    <div class="legal">
-      Made by David Hahn (FTWs). &copy; <span id="year"></span> David Hahn. All rights reserved.<br>
-      <strong>Not a medical device.</strong> Communicake is a communication aid only and does not
-      provide medical advice, diagnosis, or treatment. Provided "as is" without warranty of any kind;
-      use at your own risk. The author accepts no liability for any loss or harm arising from its use.
-    </div>
-  </div>
+<!-- Faint legal text behind the app. Barely visible against the background. -->
+<div id="disclaimer" aria-label="Legal and safety information">
+  <span class="brand">Communicake</span> — Made by David Hahn (FTWs). &copy; <span id="year"></span> David Hahn. All rights reserved.
+  <strong>Not a medical device.</strong> Communicake is a communication aid only and does not provide medical advice,
+  diagnosis, or treatment. Provided "as is" without warranty of any kind; use at your own risk. The author accepts no
+  liability for any loss or harm arising from its use.
 </div>
 
 <script>
@@ -288,9 +279,8 @@ function render(){
   document.getElementById("title").textContent = s.title;
   document.getElementById("title-sub").textContent = s.sub;
   const tiles = s.tiles.slice();
-  if(current !== "home"){
-    tiles.push({ label:"Back", emoji:"←", class:"c-back", back:true });
-  }
+  // Back button now lives in the header (top), shown on every screen except home.
+  document.getElementById("backBtn").hidden = (current === "home");
   grid.innerHTML = "";
   tiles.forEach(t=>{
     const b = document.createElement("button");
@@ -355,7 +345,6 @@ window.addEventListener("orientationchange", ()=>setTimeout(fitLayout,300));
 function onTile(t, el){
   el.classList.add("flash");
   setTimeout(()=>el.classList.remove("flash"), 220);
-  if(t.back){ goBack(); return; }
   if(t.screen){ history.push(current); current = t.screen; render(); return; }
   const sentence = t.say || t.label;
   showBanner(sentence);
