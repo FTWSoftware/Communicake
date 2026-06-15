@@ -94,14 +94,15 @@
   .tile:active{transform:translateY(4px);box-shadow:0 2px 0 rgba(0,0,0,.30);}
   .tile::after{
     content:"";position:absolute;inset:0;border-radius:inherit;
-    background:radial-gradient(circle at center,
-                rgba(255,255,255,.65), rgba(255,255,255,0) 70%);
+    /* glow originates at the edges and fades toward the tap point (--gx,--gy) */
+    background:radial-gradient(circle at var(--gx,50%) var(--gy,50%),
+                rgba(255,255,255,0) 12%, rgba(255,255,255,.45) 55%, rgba(255,255,255,1) 100%);
     opacity:0;pointer-events:none;
   }
   .tile.flash::after{animation:tileGlow .6s ease-out;}
   @keyframes tileGlow{
     0%{opacity:0;}
-    25%{opacity:.8;}
+    18%{opacity:1;}
     100%{opacity:0;}
   }
   .c-drink{background:#0e7490;}
@@ -294,7 +295,7 @@ function render(){
     const b = document.createElement("button");
     b.className = "tile " + (t.class || "");
     b.innerHTML = '<span class="emoji">'+(t.emoji||"")+'</span><span class="label">'+t.label+'</span>';
-    b.addEventListener("click", ()=>onTile(t, b));
+    b.addEventListener("click", (e)=>onTile(t, b, e));
     grid.appendChild(b);
   });
   fitLayout();
@@ -350,7 +351,17 @@ let _ft;
 window.addEventListener("resize", ()=>{ clearTimeout(_ft); _ft=setTimeout(fitLayout,120); });
 window.addEventListener("orientationchange", ()=>setTimeout(fitLayout,300));
 
-function onTile(t, el){
+function onTile(t, el, e){
+  // anchor the glow at the tap point (fallback to centre for keyboard taps)
+  if(e && typeof e.clientX === "number" && e.clientX){
+    const r = el.getBoundingClientRect();
+    el.style.setProperty("--gx", (e.clientX - r.left) + "px");
+    el.style.setProperty("--gy", (e.clientY - r.top) + "px");
+  } else {
+    el.style.setProperty("--gx", "50%");
+    el.style.setProperty("--gy", "50%");
+  }
+  el.classList.remove("flash"); void el.offsetWidth;   // restart glow on rapid taps
   el.classList.add("flash");
   setTimeout(()=>el.classList.remove("flash"), 600);
   if(t.back){ goBack(); return; }
