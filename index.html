@@ -131,7 +131,7 @@
   <header>
     <div style="flex:1">
       <h1 id="title">Communicake v1.01</h1>
-      <div id="title-sub">Tap a button — it will speak out loud</div>
+      <div id="title-sub"></div>
     </div>
     <div id="say" aria-live="polite"></div>
   </header>
@@ -155,7 +155,7 @@
 const SCREENS = {
   home: {
     title: "Communicake v1.01",
-    sub: "Tap a button — it will speak out loud",
+    sub: "",  // set dynamically based on browser (Chrome check below)
     tiles: [
       { label:"Ice",         emoji:"🧊", class:"c-drink",   screen:"ice" },
       { label:"Change bed",  emoji:"🛏️", class:"c-action",  say:"Please change the bed." },
@@ -360,6 +360,13 @@ function onTile(t, el){
   speak(sentence);
 }
 function goBack(){ current = history.pop() || "home"; render(); }
+
+/* Speech voice is reliable in Chrome; show a warning in other browsers. */
+const IS_CHROME = /Chrome|CriOS/.test(navigator.userAgent)
+  && !/Edg|OPR|SamsungBrowser|Firefox|FxiOS|YaBrowser/i.test(navigator.userAgent);
+SCREENS.home.sub = IS_CHROME
+  ? "Tap a button — it will speak out loud"
+  : "⚠️ Please open this in Google Chrome — the voice only works in Chrome.";
 
 /* footer year + first paint */
 document.getElementById("year").textContent = new Date().getFullYear();
