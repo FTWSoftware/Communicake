@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0f172a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="manifest" href="manifest.json">
+<title>Communicake</title>
+<style>
+  :root{
+    --bg:#0f172a;
+    --panel:#1e293b;
+    --ink:#f8fafc;
+    --muted:#94a3b8;
+    --accent:#38bdf8;
+    --gap:14px;
+    --radius:22px;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;height:100%;}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    width:100vw;height:100vh;overflow:hidden;
+    overscroll-behavior:none;
+  }
+  /* App fills the screen as a column — works in BOTH orientations, no rotation */
+  #app{
+    width:100vw;height:100vh;
+    display:flex;flex-direction:column;overflow:hidden;
+  }
+  /* Header */
+  header{
+    display:flex;align-items:center;gap:14px;
+    padding:12px 18px;
+    background:var(--panel);
+    box-shadow:0 2px 12px rgba(0,0,0,.35);
+    z-index:10;flex:0 0 auto;
+  }
+  h1{font-size:clamp(1.2rem,4vw,1.7rem);margin:0;font-weight:800;letter-spacing:.5px;}
+  #title-sub{color:var(--muted);font-size:clamp(.8rem,2.5vw,1rem);font-weight:500;}
+  /* The spoken banner */
+  #say{
+    margin:0;padding:0 20px;
+    max-height:0;overflow:hidden;
+    background:var(--accent);color:#06283d;
+    font-size:clamp(1.1rem,4vw,1.6rem);font-weight:800;text-align:center;
+    transition:max-height .25s ease,padding .25s ease;
+    flex:0 0 auto;
+  }
+  #say.show{max-height:120px;padding:16px 20px;}
+  /* Grid */
+  main{flex:1 1 auto;padding:var(--gap);overflow:hidden;display:flex;align-items:center;justify-content:center;}
+  .grid{
+    display:grid;
+    gap:var(--gap);
+    place-content:center;
+  }
+  .tile{
+    border:none;cursor:pointer;
+    background:var(--panel);
+    color:var(--ink);
+    border-radius:var(--radius);
+    display:flex;flex-direction:column;
+    align-items:center;justify-content:center;
+    gap:6px;
+    font-weight:800;
+    padding:8px;text-align:center;line-height:1.12;
+    box-shadow:0 5px 0 rgba(0,0,0,.30);
+    transition:transform .06s ease,box-shadow .06s ease;
+    user-select:none;overflow:hidden;
+  }
+  .tile .emoji{line-height:1;}
+  .tile:active{transform:translateY(4px);box-shadow:0 2px 0 rgba(0,0,0,.30);}
+  .tile.flash{outline:5px solid var(--accent);}
+  .c-drink{background:#0e7490;}
+  .c-comfort{background:#7c3a60;}
+  .c-action{background:#b45309;}
+  .c-feel{background:#4338ca;}
+  .c-nav{background:#15803d;}
+  .c-yes{background:#15803d;}
+  .c-no{background:#b91c1c;}
+  .c-back{background:#475569;}
+
+  /* ---------- Pull-up disclaimer drawer ---------- */
+  /* A tiny grab handle sits at the very bottom edge. The legal text lives in a
+     sheet that stays hidden off-screen until the user deliberately drags it up. */
+  #sheet{
+    position:fixed;left:0;right:0;bottom:0;
+    z-index:50;
+    background:var(--panel);
+    border-top:1px solid #334155;
+    border-radius:16px 16px 0 0;
+    box-shadow:0 -8px 24px rgba(0,0,0,.45);
+    transform:translateY(calc(100% - 14px)); /* only the 14px handle peeks out */
+    transition:transform .28s cubic-bezier(.22,.61,.36,1);
+    touch-action:none;
+    padding-bottom:max(10px,env(safe-area-inset-bottom));
+  }
+  #sheet.open{transform:translateY(0);}
+  #sheet-handle{
+    height:14px;display:flex;align-items:center;justify-content:center;
+    cursor:grab;touch-action:none;
+  }
+  #sheet-handle::before{
+    content:"";width:42px;height:4px;border-radius:4px;
+    background:#475569;opacity:.5;
+  }
+  #sheet-body{
+    padding:6px 18px 16px;
+    text-align:center;color:var(--muted);font-size:.7rem;line-height:1.5;
+    max-height:46vh;overflow:auto;
+  }
+  #sheet-body .brand{font-weight:800;color:var(--ink);font-size:.9rem;letter-spacing:.5px;}
+  #sheet-body .legal{max-width:620px;margin:6px auto 0;}
+  #sheet-body a{color:var(--accent);text-decoration:none;}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div style="flex:1">
+      <h1 id="title">What do you need?</h1>
+      <div id="title-sub">Tap a button — it will speak out loud</div>
+    </div>
+  </header>
+  <div id="say"></div>
+  <main>
+    <div class="grid" id="grid"></div>
+  </main>
+</div>
+
+<!-- Hidden pull-up disclaimer. Drag the small handle up (or tap it) to reveal. -->
+<div id="sheet" aria-label="Legal and safety information">
+  <div id="sheet-handle" role="button" tabindex="0" aria-label="Pull up for disclaimer"></div>
+  <div id="sheet-body">
+    <div class="brand">Communicake</div>
+    <div class="legal">
+      Made by David Hahn (FTWs). &copy; <span id="year"></span> David Hahn. All rights reserved.<br>
+      <strong>Not a medical device.</strong> Communicake is a communication aid only and does not
+      provide medical advice, diagnosis, or treatment. Provided "as is" without warranty of any kind;
+      use at your own risk. The author accepts no liability for any loss or harm arising from its use.
+    </div>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   EASY TO EDIT: all buttons are defined here.
+   Each tile = { label, emoji, say, class, screen }
+   ============================================================ */
+const SCREENS = {
+  home: {
+    title: "What do you need?",
+    sub: "Tap a button — it will speak out loud",
+    tiles: [
+      { label:"Ice",         emoji:"🧊", class:"c-drink",   screen:"ice" },
+      { label:"Change bed",  emoji:"🛏️", class:"c-action",  say:"Please change the bed." },
+      { label:"Sit up",      emoji:"⬆️", class:"c-action",  say:"Please help me sit up." },
+      { label:"Too hot",     emoji:"🥵", class:"c-feel",    say:"I am too hot." },
+      { label:"Too cold",    emoji:"🥶", class:"c-feel",    say:"I am too cold." },
+      { label:"I'm in pain", emoji:"🤕", class:"c-nav",     screen:"pain_side" },
+      { label:"Yes",         emoji:"👍", class:"c-yes" },
+      { label:"No",          emoji:"👎", class:"c-no" },
+      { label:"Thank you",   emoji:"🙏", class:"c-comfort" },
+    ]
+  },
+  ice: {
+    title: "Ice — where?",
+    sub: "In your mouth, or on your body",
+    tiles: [
+      { label:"Ice in my mouth", emoji:"🧊", class:"c-drink",  say:"I would like some ice in my mouth." },
+      { label:"On my forehead",  emoji:"😶", class:"c-action", say:"Please put ice on my forehead." },
+      { label:"On my neck",      emoji:"💆", class:"c-action", say:"Please put ice on my neck." },
+      { label:"Left side",       emoji:"👈", class:"c-nav",    screen:"ice_left"  },
+      { label:"Right side",      emoji:"👉", class:"c-nav",    screen:"ice_right" },
+    ]
+  },
+  ice_left: {
+    title: "Ice — left side",
+    sub: "Tap where to place the ice",
+    tiles: [
+      { label:"Left shoulder", emoji:"💪", class:"c-action", say:"Please put ice on my left shoulder." },
+      { label:"Left arm",      emoji:"🦾", class:"c-action", say:"Please put ice on my left arm." },
+      { label:"Left hand",     emoji:"✋", class:"c-action", say:"Please put ice on my left hand." },
+      { label:"Left hip",      emoji:"🦵", class:"c-action", say:"Please put ice on my left hip." },
+      { label:"Left leg",      emoji:"🦵", class:"c-action", say:"Please put ice on my left leg." },
+      { label:"Left foot",     emoji:"🦶", class:"c-action", say:"Please put ice on my left foot." },
+    ]
+  },
+  ice_right: {
+    title: "Ice — right side",
+    sub: "Tap where to place the ice",
+    tiles: [
+      { label:"Right shoulder", emoji:"💪", class:"c-action", say:"Please put ice on my right shoulder." },
+      { label:"Right arm",      emoji:"🦾", class:"c-action", say:"Please put ice on my right arm." },
+      { label:"Right hand",     emoji:"✋", class:"c-action", say:"Please put ice on my right hand." },
+      { label:"Right hip",      emoji:"🦵", class:"c-action", say:"Please put ice on my right hip." },
+      { label:"Right leg",      emoji:"🦵", class:"c-action", say:"Please put ice on my right leg." },
+      { label:"Right foot",     emoji:"🦶", class:"c-action", say:"Please put ice on my right foot." },
+    ]
+  },
+  pain_side: {
+    title: "Where is the pain?",
+    sub: "Choose a side",
+    tiles: [
+      { label:"Left side",  emoji:"👈", class:"c-nav", screen:"pain_left"  },
+      { label:"Right side", emoji:"👉", class:"c-nav", screen:"pain_right" },
+      { label:"Head / neck",emoji:"🧠", class:"c-nav", screen:"pain_head"  },
+    ]
+  },
+  pain_left: {
+    title: "Left side — where?",
+    sub: "Tap the area that hurts",
+    tiles: [
+      { label:"Left shoulder", emoji:"💪", class:"c-action", say:"My left shoulder is hot and in pain." },
+      { label:"Left arm",      emoji:"🦾", class:"c-action", say:"My left arm is in pain." },
+      { label:"Left hand",     emoji:"✋", class:"c-action", say:"My left hand is in pain." },
+      { label:"Left hip",      emoji:"🦵", class:"c-action", say:"My left hip is in pain." },
+      { label:"Left leg",      emoji:"🦵", class:"c-action", say:"My left leg is in pain." },
+      { label:"Left foot",     emoji:"🦶", class:"c-action", say:"My left foot is in pain." },
+    ]
+  },
+  pain_right: {
+    title: "Right side — where?",
+    sub: "Tap the area that hurts",
+    tiles: [
+      { label:"Right shoulder", emoji:"💪", class:"c-action", say:"My right shoulder is hot and in pain." },
+      { label:"Right arm",      emoji:"🦾", class:"c-action", say:"My right arm is in pain." },
+      { label:"Right hand",     emoji:"✋", class:"c-action", say:"My right hand is in pain." },
+      { label:"Right hip",      emoji:"🦵", class:"c-action", say:"My right hip is in pain." },
+      { label:"Right leg",      emoji:"🦵", class:"c-action", say:"My right leg is in pain." },
+      { label:"Right foot",     emoji:"🦶", class:"c-action", say:"My right foot is in pain." },
+    ]
+  },
+  pain_head: {
+    title: "Head & neck — where?",
+    sub: "Tap the area that hurts",
+    tiles: [
+      { label:"Head",  emoji:"🧠", class:"c-action", say:"My head is in pain." },
+      { label:"Eyes",  emoji:"👁️", class:"c-action", say:"My eyes hurt." },
+      { label:"Mouth", emoji:"👄", class:"c-action", say:"My mouth hurts." },
+      { label:"Throat",emoji:"🗣️", class:"c-action", say:"My throat hurts." },
+      { label:"Neck",  emoji:"💆", class:"c-action", say:"My neck is in pain." },
+      { label:"Chest", emoji:"🫁", class:"c-action", say:"My chest hurts." },
+    ]
+  },
+};
+
+/* ---------- engine ---------- */
+let current = "home";
+let history = [];
+const grid = document.getElementById("grid");
+const sayBanner = document.getElementById("say");
+
+function speak(text){
+  if(!text) return;
+  try{
+    const synth = window.speechSynthesis;
+    if(!synth) return;
+    synth.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.rate = 0.95; u.pitch = 1.0; u.volume = 1.0; u.lang = "en-US";
+    const v = pickVoice();
+    if(v) u.voice = v;
+    synth.speak(u);
+  }catch(e){}
+}
+let VOICES = [];
+function loadVoices(){ try{ VOICES = window.speechSynthesis.getVoices() || []; }catch(e){ VOICES = []; } }
+function pickVoice(){ if(!VOICES.length) loadVoices(); return VOICES.find(v => /^en/i.test(v.lang)) || VOICES[0] || null; }
+if("speechSynthesis" in window){ loadVoices(); window.speechSynthesis.onvoiceschanged = loadVoices; }
+
+function showBanner(text){
+  sayBanner.textContent = text;
+  sayBanner.classList.add("show");
+  clearTimeout(showBanner._t);
+  showBanner._t = setTimeout(()=>sayBanner.classList.remove("show"), 4000);
+}
+
+/* ---------- rendering ---------- */
+function render(){
+  const s = SCREENS[current];
+  document.getElementById("title").textContent = s.title;
+  document.getElementById("title-sub").textContent = s.sub;
+  const tiles = s.tiles.slice();
+  if(current !== "home"){
+    tiles.push({ label:"Back", emoji:"←", class:"c-back", back:true });
+  }
+  grid.innerHTML = "";
+  tiles.forEach(t=>{
+    const b = document.createElement("button");
+    b.className = "tile " + (t.class || "");
+    b.innerHTML = '<span class="emoji">'+(t.emoji||"")+'</span><span class="label">'+t.label+'</span>';
+    b.addEventListener("click", ()=>onTile(t, b));
+    grid.appendChild(b);
+  });
+  fitLayout();
+}
+
+/* Size buttons so they all fit with no scrolling, in BOTH orientations.
+   Key fixes: enforce a sensible minimum number of columns (so portrait never
+   collapses to a single giant button), and cap the maximum tile size. */
+function fitLayout(){
+  const main = document.querySelector("main");
+  const cs = getComputedStyle(main);
+  const W = main.clientWidth  - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+  const H = main.clientHeight - parseFloat(cs.paddingTop)  - parseFloat(cs.paddingBottom);
+  const tiles = grid.children;
+  const n = tiles.length;
+  if(!n || W<=0 || H<=0) return;
+
+  const gap = parseFloat(getComputedStyle(grid).gap) || 14;
+
+  // Minimum columns: at least 2 when there are enough tiles, and scale up a bit
+  // for wider screens so landscape stays nicely packed.
+  const portrait = H >= W;
+  let minCols = n >= 2 ? 2 : 1;
+  if(!portrait && n >= 4) minCols = 3;     // landscape: avoid 1-2 huge buttons
+  minCols = Math.min(minCols, n);
+
+  let best = {size:0, cols:minCols};
+  for(let cols=minCols; cols<=n; cols++){
+    const rows = Math.ceil(n/cols);
+    const w = (W - gap*(cols-1)) / cols;
+    const h = (H - gap*(rows-1)) / rows;
+    const size = Math.min(w, h);
+    if(size > best.size) best = {size, cols};
+  }
+
+  // Cap so buttons never become comically large on big screens.
+  const cap = Math.min(260, Math.floor(Math.min(W, H) * 0.9));
+  let size = Math.min(Math.floor(best.size), cap);
+  size = Math.max(size, 56); // hard floor so labels stay tappable
+
+  grid.style.gridTemplateColumns = "repeat("+best.cols+", "+size+"px)";
+  grid.style.gridAutoRows = size + "px";
+
+  const fs = Math.max(12, Math.round(size*0.13));
+  const em = Math.round(size*0.34);
+  for(const t of tiles){
+    t.style.fontSize = fs + "px";
+    const e = t.querySelector(".emoji");
+    if(e) e.style.fontSize = em + "px";
+  }
+}
+let _ft;
+window.addEventListener("resize", ()=>{ clearTimeout(_ft); _ft=setTimeout(fitLayout,120); });
+window.addEventListener("orientationchange", ()=>setTimeout(fitLayout,300));
+
+function onTile(t, el){
+  el.classList.add("flash");
+  setTimeout(()=>el.classList.remove("flash"), 220);
+  if(t.back){ goBack(); return; }
+  if(t.screen){ history.push(current); current = t.screen; render(); return; }
+  const sentence = t.say || t.label;
+  showBanner(sentence);
+  speak(sentence);
+}
+function goBack(){ current = history.pop() || "home"; render(); }
+
+/* ---------- pull-up disclaimer drawer ---------- */
+(function(){
+  const sheet = document.getElementById("sheet");
+  const handle = document.getElementById("sheet-handle");
+  let startY = null, dragging = false, openAtStart = false;
+
+  function sheetTravel(){ return sheet.getBoundingClientRect().height - 14; }
+
+  function down(y){ startY = y; dragging = true; openAtStart = sheet.classList.contains("open"); sheet.style.transition = "none"; }
+  function move(y){
+    if(!dragging) return;
+    const travel = sheetTravel();
+    const base = openAtStart ? 0 : travel;          // current resting offset
+    let offset = base + (y - startY);               // drag up = smaller offset
+    offset = Math.max(0, Math.min(travel, offset));
+    sheet.style.transform = "translateY("+offset+"px)";
+  }
+  function up(y){
+    if(!dragging) return;
+    dragging = false;
+    sheet.style.transition = "";
+    sheet.style.transform = "";
+    const travel = sheetTravel();
+    const moved = startY - y;                        // positive = pulled up
+    // Require a deliberate pull (≈ a third of the sheet) to open. Effortful by design.
+    if(openAtStart){
+      if((y - startY) > travel*0.25) sheet.classList.remove("open");
+    }else{
+      if(moved > travel*0.33) sheet.classList.add("open");
+    }
+    startY = null;
+  }
+
+  handle.addEventListener("pointerdown", e=>{ handle.setPointerCapture(e.pointerId); down(e.clientY); });
+  handle.addEventListener("pointermove", e=>move(e.clientY));
+  handle.addEventListener("pointerup",   e=>up(e.clientY));
+  handle.addEventListener("pointercancel", e=>up(e.clientY));
+
+  // Keyboard accessibility: Enter/Space toggles.
+  handle.addEventListener("keydown", e=>{
+    if(e.key==="Enter" || e.key===" "){ e.preventDefault(); sheet.classList.toggle("open"); }
+  });
+  // Tapping the page elsewhere closes it.
+  document.addEventListener("pointerdown", e=>{
+    if(sheet.classList.contains("open") && !sheet.contains(e.target)) sheet.classList.remove("open");
+  });
+})();
+
+/* footer year + first paint */
+document.getElementById("year").textContent = new Date().getFullYear();
+render();
+</script>
+</body>
+</html>
