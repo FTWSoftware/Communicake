@@ -2,14 +2,8 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#0f172a">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="mobile-web-app-capable" content="yes">
-<link rel="manifest" href="manifest.json">
-<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
-<link rel="apple-touch-icon" href="apple-touch-icon.png">
 <title>Communicake</title>
 <style>
   :root{
@@ -18,7 +12,7 @@
     --ink:#f8fafc;
     --muted:#94a3b8;
     --accent:#38bdf8;
-    --gap:14px;
+    --gap:18px;
     --radius:22px;
   }
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
@@ -27,78 +21,67 @@
     background:var(--bg);
     color:var(--ink);
     font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
-    width:100vw;height:100vh;height:100dvh;overflow:hidden;
+    display:flex;flex-direction:column;
+    min-height:100vh;
     overscroll-behavior:none;
   }
-  /* App fills the screen as a column — works in BOTH orientations, no rotation.
-     position/z-index keep it above the faint background disclaimer text. */
-  #app{
-    position:relative;z-index:1;
-    width:100vw;height:100vh;height:100dvh;
-    display:flex;flex-direction:column;overflow:hidden;
-  }
+
   /* Header */
   header{
-    display:flex;align-items:center;gap:12px;
-    padding:12px 18px;
+    display:flex;align-items:center;gap:14px;
+    padding:16px 20px;
     background:var(--panel);
     box-shadow:0 2px 12px rgba(0,0,0,.35);
-    z-index:10;flex:0 0 auto;
+    position:sticky;top:0;z-index:10;
   }
-  h1{font-size:clamp(1.2rem,4vw,1.7rem);margin:0;font-weight:800;letter-spacing:.5px;}
-  #title-sub{color:var(--muted);font-size:clamp(.8rem,2.5vw,1rem);font-weight:500;}
-  /* Portrait: header eats too much vertical space, so shrink it ~60%. */
-  @media (orientation:portrait){
-    header{padding:5px 14px;gap:8px;}
-    h1{font-size:clamp(.85rem,3.2vw,1.1rem);}
-    #title-sub{font-size:clamp(.6rem,2vw,.78rem);}
+  #backBtn{
+    display:none;
+    border:none;background:#334155;color:var(--ink);
+    font-size:1.4rem;font-weight:700;
+    padding:14px 22px;border-radius:16px;cursor:pointer;
+    min-height:60px;
   }
-  /* Spoken phrase: compact embedded GREEN box in the header, right of the title */
+  #backBtn:active{background:#475569;}
+  h1{font-size:1.7rem;margin:0;font-weight:800;letter-spacing:.5px;flex:1;}
+  #title-sub{color:var(--muted);font-size:1rem;font-weight:500;}
+
+  /* The spoken banner */
   #say{
-    flex:0 1 auto;margin-left:auto;align-self:stretch;   /* match height of the title+subtitle on the left */
-    display:flex;align-items:center;justify-content:center;
-    max-width:50%;
-    background:linear-gradient(180deg,#1ca34a,#15803d);
-    color:#f0fff4;
-    font-size:clamp(1.15rem,3.3vw,1.7rem);               /* bigger */
-    font-weight:800;line-height:1.12;text-align:center;
-    padding:10px 18px;border-radius:14px;
-    border:1px solid rgba(255,255,255,.14);
-    box-shadow:0 2px 5px rgba(0,0,0,.28);                /* softer, less 3D */
-    opacity:0;transform:translateY(-2px);
-    transition:opacity .2s ease,transform .2s ease;
-    overflow:hidden;
+    margin:0;padding:0 20px;
+    max-height:0;overflow:hidden;
+    background:var(--accent);color:#06283d;
+    font-size:1.6rem;font-weight:800;text-align:center;
+    transition:max-height .25s ease,padding .25s ease;
   }
-  #say:empty{display:none;}
-  #say.show{opacity:1;transform:none;}
-  @media (orientation:portrait){
-    #say{font-size:clamp(.9rem,2.7vw,1.2rem);padding:7px 12px;max-width:54%;}
-  }
+  #say.show{max-height:120px;padding:18px 20px;}
+
   /* Grid */
-  main{flex:1 1 auto;padding:var(--gap);overflow-y:auto;-webkit-overflow-scrolling:touch;display:flex;flex-direction:column;}
+  main{flex:1;padding:var(--gap);overflow-y:auto;}
   .grid{
-    display:flex;flex-wrap:wrap;
+    display:grid;
+    grid-template-columns:repeat(auto-fill,minmax(190px,1fr));
     gap:var(--gap);
-    justify-content:center;align-content:center;
-    margin:auto;max-width:100%;     /* centers rows; partial last row stays centered */
   }
   .tile{
-    border:none;cursor:pointer;flex:0 0 auto;
+    border:none;cursor:pointer;
     background:var(--panel);
     color:var(--ink);
     border-radius:var(--radius);
+    aspect-ratio:1/1;
     display:flex;flex-direction:column;
     align-items:center;justify-content:center;
-    gap:6px;
-    font-weight:800;
-    padding:8px;text-align:center;line-height:1.12;
-    box-shadow:0 5px 0 rgba(0,0,0,.30);
+    gap:10px;
+    font-size:1.7rem;font-weight:800;
+    padding:14px;text-align:center;line-height:1.15;
+    box-shadow:0 6px 0 rgba(0,0,0,.30);
     transition:transform .06s ease,box-shadow .06s ease;
-    user-select:none;overflow:hidden;
+    user-select:none;
   }
-  .tile .emoji{line-height:1;}
+  .tile .emoji{font-size:3.6rem;line-height:1;}
   .tile:active{transform:translateY(4px);box-shadow:0 2px 0 rgba(0,0,0,.30);}
   .tile.flash{outline:5px solid var(--accent);}
+
+  /* Color accents per category */
   .c-drink{background:#0e7490;}
   .c-comfort{background:#7c3a60;}
   .c-action{background:#b45309;}
@@ -106,55 +89,55 @@
   .c-nav{background:#15803d;}
   .c-yes{background:#15803d;}
   .c-no{background:#b91c1c;}
-  .c-back{background:#475569;}
 
-  /* ---------- Faint background disclaimer ----------
-     Sits BEHIND the app (z-index:0). The colour is almost identical to the
-     background, so it's barely visible and only peeks through the gaps around
-     the buttons. It never affects the button layout and isn't interactive. */
-  #disclaimer{
-    position:fixed;left:0;right:0;bottom:0;
-    z-index:0;pointer-events:none;
-    padding:14px 18px;
-    text-align:center;
-    color:#16223c;                 /* nearly the same as --bg (#0f172a) */
-    font-size:.62rem;line-height:1.45;
-    max-width:760px;margin:0 auto;
+  footer{
+    text-align:center;color:var(--muted);
+    padding:18px 20px 26px;font-size:.8rem;line-height:1.5;
+    border-top:1px solid #1e293b;margin-top:10px;
   }
-  #disclaimer .brand{font-weight:800;}
-  #disclaimer strong{color:#1c2a47;}
+  footer .brand{font-weight:800;color:var(--ink);font-size:1rem;letter-spacing:.5px;}
+  footer .legal{max-width:640px;margin:8px auto 0;}
+  footer a{color:var(--accent);text-decoration:none;}
 </style>
 </head>
 <body>
-<div id="app">
   <header>
+    <button id="backBtn" onclick="goHome()">‹ Back</button>
     <div style="flex:1">
       <h1 id="title">What do you need?</h1>
       <div id="title-sub">Tap a button — it will speak out loud</div>
     </div>
-    <div id="say" aria-live="polite"></div>
   </header>
+
+  <div id="say"></div>
+
   <main>
     <div class="grid" id="grid"></div>
   </main>
-</div>
 
-<!-- Faint legal text behind the app. Barely visible against the background. -->
-<div id="disclaimer" aria-label="Legal and safety information">
-  <span class="brand">Communicake</span> — Made by David Hahn (FTWs). &copy; <span id="year"></span> David Hahn. All rights reserved.
-  <strong>Not a medical device.</strong> Communicake is a communication aid only and does not provide medical advice,
-  diagnosis, or treatment. Provided "as is" without warranty of any kind; use at your own risk. The author accepts no
-  liability for any loss or harm arising from its use.
-</div>
+  <footer>
+    <div class="brand">Communicake</div>
+    <div class="legal">
+      Made by David Hahn (FTWs). &copy; <span id="year"></span> David Hahn. All rights reserved.<br>
+      <strong>Not a medical device.</strong> Communicake is a communication aid only and does not
+      provide medical advice, diagnosis, or treatment. Provided "as is" without warranty of any kind; use at your own risk. The author accepts no liability for any loss or harm arising from its use.
+    </div>
+  </footer>
 
 <script>
 /* ============================================================
    EASY TO EDIT: all buttons are defined here.
    Each tile = { label, emoji, say, class, screen }
+   - label : big text on the square
+   - emoji : the picture
+   - say   : the sentence spoken aloud (defaults to label)
+   - class : color theme (c-drink, c-comfort, c-action, c-feel, c-nav, c-yes, c-no)
+   - screen: if set, tapping opens another screen instead of speaking
    ============================================================ */
+
 const SCREENS = {
   home: {
-    title: "What do you need?",
+    title: "Communicake v1.01",
     sub: "Tap a button — it will speak out loud",
     tiles: [
       { label:"Ice",         emoji:"🧊", class:"c-drink",   screen:"ice" },
@@ -168,6 +151,8 @@ const SCREENS = {
       { label:"Thank you",   emoji:"🙏", class:"c-comfort" },
     ]
   },
+
+  /* Ice: in the mouth, or applied to the body */
   ice: {
     title: "Ice — where?",
     sub: "In your mouth, or on your body",
@@ -179,6 +164,7 @@ const SCREENS = {
       { label:"Right side",      emoji:"👉", class:"c-nav",    screen:"ice_right" },
     ]
   },
+
   ice_left: {
     title: "Ice — left side",
     sub: "Tap where to place the ice",
@@ -191,6 +177,7 @@ const SCREENS = {
       { label:"Left foot",     emoji:"🦶", class:"c-action", say:"Please put ice on my left foot." },
     ]
   },
+
   ice_right: {
     title: "Ice — right side",
     sub: "Tap where to place the ice",
@@ -203,6 +190,8 @@ const SCREENS = {
       { label:"Right foot",     emoji:"🦶", class:"c-action", say:"Please put ice on my right foot." },
     ]
   },
+
+  /* Step 1 of pain flow: which side */
   pain_side: {
     title: "Where is the pain?",
     sub: "Choose a side",
@@ -212,6 +201,8 @@ const SCREENS = {
       { label:"Head / neck",emoji:"🧠", class:"c-nav", screen:"pain_head"  },
     ]
   },
+
+  /* Step 2: anatomy on the left */
   pain_left: {
     title: "Left side — where?",
     sub: "Tap the area that hurts",
@@ -224,6 +215,7 @@ const SCREENS = {
       { label:"Left foot",     emoji:"🦶", class:"c-action", say:"My left foot is in pain." },
     ]
   },
+
   pain_right: {
     title: "Right side — where?",
     sub: "Tap the area that hurts",
@@ -236,6 +228,7 @@ const SCREENS = {
       { label:"Right foot",     emoji:"🦶", class:"c-action", say:"My right foot is in pain." },
     ]
   },
+
   pain_head: {
     title: "Head & neck — where?",
     sub: "Tap the area that hurts",
@@ -250,125 +243,63 @@ const SCREENS = {
   },
 };
 
-/* ---------- engine ---------- */
+/* ---------- engine (you should not need to edit below) ---------- */
 let current = "home";
-let history = [];
 const grid = document.getElementById("grid");
 const sayBanner = document.getElementById("say");
+const backBtn = document.getElementById("backBtn");
 
 function speak(text){
-  if(!text) return;
   try{
-    const synth = window.speechSynthesis;
-    if(!synth) return;
-    synth.cancel();
+    window.speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(text);
-    u.rate = 0.95; u.pitch = 1.0; u.volume = 1.0; u.lang = "en-US";
-    const v = pickVoice();
-    if(v) u.voice = v;
-    synth.speak(u);
-  }catch(e){}
+    u.rate = 0.95; u.pitch = 1; u.volume = 1; u.lang = "en-US";
+    window.speechSynthesis.speak(u);
+  }catch(e){ /* speech not supported */ }
 }
-let VOICES = [];
-function loadVoices(){ try{ VOICES = window.speechSynthesis.getVoices() || []; }catch(e){ VOICES = []; } }
-function pickVoice(){ if(!VOICES.length) loadVoices(); return VOICES.find(v => /^en/i.test(v.lang)) || VOICES[0] || null; }
-if("speechSynthesis" in window){ loadVoices(); window.speechSynthesis.onvoiceschanged = loadVoices; }
 
 function showBanner(text){
   sayBanner.textContent = text;
-  sayBanner.classList.add("show");   /* stays visible until the next phrase */
+  sayBanner.classList.add("show");
+  clearTimeout(showBanner._t);
+  showBanner._t = setTimeout(()=>sayBanner.classList.remove("show"), 3500);
 }
 
-/* ---------- rendering ---------- */
-function render(){
-  const s = SCREENS[current];
+function render(name){
+  const s = SCREENS[name];
+  if(!s) return;
+  current = name;
   document.getElementById("title").textContent = s.title;
   document.getElementById("title-sub").textContent = s.sub;
-  const tiles = s.tiles.slice();
-  // Back button is the FIRST tile in the grid (top of the button rows), except on home.
-  if(current !== "home"){
-    tiles.unshift({ label:"Back", emoji:"←", class:"c-back", back:true });
-  }
+  backBtn.style.display = (name === "home") ? "none" : "block";
   grid.innerHTML = "";
-  tiles.forEach(t=>{
+  s.tiles.forEach(t=>{
     const b = document.createElement("button");
     b.className = "tile " + (t.class || "");
-    b.innerHTML = '<span class="emoji">'+(t.emoji||"")+'</span><span class="label">'+t.label+'</span>';
-    b.addEventListener("click", ()=>onTile(t, b));
+    b.innerHTML = `<span class="emoji">${t.emoji||""}</span><span>${t.label}</span>`;
+    b.onclick = ()=>{
+      if(t.screen){ render(t.screen); return; }
+      const phrase = t.say || t.label;
+      speak(phrase);
+      showBanner(phrase);
+      b.classList.add("flash");
+      setTimeout(()=>b.classList.remove("flash"), 350);
+    };
     grid.appendChild(b);
   });
-  fitLayout();
 }
 
-/* Size buttons so they all fit with no scrolling, in BOTH orientations.
-   Key fixes: enforce a sensible minimum number of columns (so portrait never
-   collapses to a single giant button), and cap the maximum tile size. */
-function fitLayout(){
-  const main = document.querySelector("main");
-  const cs = getComputedStyle(main);
-  const W = main.clientWidth  - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
-  const H = main.clientHeight - parseFloat(cs.paddingTop)  - parseFloat(cs.paddingBottom);
-  const tiles = grid.children;
-  const n = tiles.length;
-  if(!n || W<=0 || H<=0) return;
+function goHome(){ render("home"); }
 
-  const gap = parseFloat(getComputedStyle(grid).gap) || 14;
-
-  // Minimum columns: at least 2 when there are enough tiles, and scale up a bit
-  // for wider screens so landscape stays nicely packed.
-  const portrait = H >= W;
-  let minCols = n >= 2 ? 2 : 1;
-  if(!portrait && n >= 4) minCols = 3;     // landscape: avoid 1-2 huge buttons
-  minCols = Math.min(minCols, n);
-
-  let best = {size:0, cols:minCols};
-  for(let cols=minCols; cols<=n; cols++){
-    const rows = Math.ceil(n/cols);
-    const w = (W - gap*(cols-1)) / cols;
-    const h = (H - gap*(rows-1)) / rows;
-    const size = Math.min(w, h);
-    if(size > best.size) best = {size, cols};
-  }
-
-  // Cap so buttons never become comically large on big screens.
-  const cap = Math.min(260, Math.floor(Math.min(W, H) * 0.9));
-  let size = Math.min(Math.floor(best.size), cap);
-  size = Math.max(size, 56); // hard floor so labels stay tappable
-
-  // Constrain the flex row to exactly best.cols tiles wide, so wrapping is
-  // predictable and any partial final row stays centered (not left-aligned).
-  grid.style.width = (best.cols*size + (best.cols-1)*gap) + "px";
-
-  const fs = Math.max(12, Math.round(size*0.13));
-  const em = Math.round(size*0.34);
-  for(const t of tiles){
-    t.style.width  = size + "px";
-    t.style.height = size + "px";
-    t.style.fontSize = fs + "px";
-    const e = t.querySelector(".emoji");
-    if(e) e.style.fontSize = em + "px";
-  }
+/* warm up speech engine on first touch (mobile requirement) */
+function warmUp(){
+  try{ window.speechSynthesis.getVoices(); }catch(e){}
+  window.removeEventListener("pointerdown", warmUp);
 }
-let _ft;
-window.addEventListener("resize", ()=>{ clearTimeout(_ft); _ft=setTimeout(fitLayout,120); });
-window.addEventListener("orientationchange", ()=>setTimeout(fitLayout,300));
+window.addEventListener("pointerdown", warmUp, {once:true});
 
-function onTile(t, el){
-  el.classList.add("flash");
-  setTimeout(()=>el.classList.remove("flash"), 220);
-  if(t.back){ goBack(); return; }
-  if(t.screen){ history.push(current); current = t.screen; render(); return; }
-  const sentence = t.say || t.label;
-  showBanner(sentence);
-  speak(sentence);
-}
-function goBack(){ current = history.pop() || "home"; render(); }
-
-
-/* footer year + first paint */
 document.getElementById("year").textContent = new Date().getFullYear();
-render();
+render("home");
 </script>
 </body>
 </html>
-                                                                                                       
