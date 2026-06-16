@@ -57,9 +57,33 @@
 import * as tts from "https://cdn.jsdelivr.net/npm/@diffusionstudio/vits-web@1.0.3/+esm";
 import JSZip from "https://cdn.jsdelivr.net/npm/jszip@3.10.1/+esm";
 
-const PHRASES = ["Please change the bed.", "Please help me sit up.", "I am too hot.", "I am too cold.", "Yes", "No", "Thank you", "I would like some ice in my mouth.", "Please put ice on my forehead.", "Please put ice on my neck.", "Please put ice on my left shoulder.", "Please put ice on my left arm.", "Please put ice on my left hand.", "Please put ice on my left hip.", "Please put ice on my left leg.", "Please put ice on my left foot.", "Please put ice on my right shoulder.", "Please put ice on my right arm.", "Please put ice on my right hand.", "Please put ice on my right hip.", "Please put ice on my right leg.", "Please put ice on my right foot.", "My left shoulder is hot and in pain.", "My left arm is in pain.", "My left hand is in pain.", "My left hip is in pain.", "My left leg is in pain.", "My left foot is in pain.", "My right shoulder is hot and in pain.", "My right arm is in pain.", "My right hand is in pain.", "My right hip is in pain.", "My right leg is in pain.", "My right foot is in pain.", "My head is in pain.", "My eyes hurt.", "My mouth hurts.", "My throat hurts.", "My neck is in pain.", "My chest hurts.", "Hello Mum.", "Hello Brian.", "Hello Realene.", "Hello Abby.", "Hello Diane.", "Hello Christine.", "Hello David.", "How are you?", "I love you.", "I am glad you are here.", "Can you stay with me a while?", "Please hold my hand.", "I missed you.", "Thank you for coming.", "Can you come back later?", "Goodbye for now.", "One.", "Two.", "Three.", "Four.", "Five.", "Six.", "Seven.", "Eight.", "Nine.", "Ten."];
-// The phrases added in the "Hello / family" update — use this for a quick top-up.
-const NEW_PHRASES = ["Hello Mum.", "Hello Brian.", "Hello Realene.", "Hello Abby.", "Hello Diane.", "Hello Christine.", "Hello David.", "How are you?", "I love you.", "I am glad you are here.", "Can you stay with me a while?", "Please hold my hand.", "I missed you.", "Thank you for coming.", "Can you come back later?", "Goodbye for now.", "One.", "Two.", "Three.", "Four.", "Five.", "Six.", "Seven.", "Eight.", "Nine.", "Ten."];
+/* === People & talk phrases ===
+   PEOPLE must match the names on the "Say hello" screen in index.html.
+   TALK_TEMPLATES must match the talk-screen "say" text in index.html exactly
+   (so the saved clip names line up). {name} is filled in for each person. */
+const PEOPLE = ["Mum","Brian","Realene","Abby","Diane","Christine","David"];
+const TALK_TEMPLATES = [
+  "Hello, {name}.",
+  "How are you, {name}?",
+  "I love you, {name}.",
+  "{name}, I am glad you are here.",
+  "Can you stay with me a while, {name}?",
+  "Please hold my hand, {name}.",
+  "I missed you, {name}.",
+  "Thank you for coming, {name}.",
+  "Can you come back later, {name}?",
+  "Goodbye for now, {name}.",
+];
+const TALK_PHRASES = [];
+for(const person of PEOPLE){ for(const t of TALK_TEMPLATES){ TALK_PHRASES.push(t.replace(/\{name\}/g, person)); } }
+
+// Everything that does NOT change with the person (buttons, ice, pain, numbers).
+const BASE_PHRASES = ["Please change the bed.", "Please help me sit up.", "I am too hot.", "I am too cold.", "Yes", "No", "Thank you", "I would like some ice in my mouth.", "Please put ice on my forehead.", "Please put ice on my neck.", "Please put ice on my left shoulder.", "Please put ice on my left arm.", "Please put ice on my left hand.", "Please put ice on my left hip.", "Please put ice on my left leg.", "Please put ice on my left foot.", "Please put ice on my right shoulder.", "Please put ice on my right arm.", "Please put ice on my right hand.", "Please put ice on my right hip.", "Please put ice on my right leg.", "Please put ice on my right foot.", "My left shoulder is hot and in pain.", "My left arm is in pain.", "My left hand is in pain.", "My left hip is in pain.", "My left leg is in pain.", "My left foot is in pain.", "My right shoulder is hot and in pain.", "My right arm is in pain.", "My right hand is in pain.", "My right hip is in pain.", "My right leg is in pain.", "My right foot is in pain.", "My head is in pain.", "My eyes hurt.", "My mouth hurts.", "My throat hurts.", "My neck is in pain.", "My chest hurts.", "One.", "Two.", "Three.", "Four.", "Five.", "Six.", "Seven.", "Eight.", "Nine.", "Ten."];
+
+// All clips the app needs = base phrases + every person's talk phrases.
+const PHRASES = BASE_PHRASES.concat(TALK_PHRASES);
+// Quick top-up: just the per-person talk phrases (the ones that recently changed).
+const NEW_PHRASES = TALK_PHRASES.slice();
 const logEl=document.getElementById("log");
 const out=document.getElementById("out");
 const go=document.getElementById("go");
@@ -70,7 +94,15 @@ function slug(s){ return String(s).toLowerCase().replace(/[^a-z0-9]+/g,"_").repl
    (e.g. yes.wav), but it is SPOKEN using the text on the right. Tweak these if
    a word sounds wrong with the chosen voice. */
 const SAY_AS = { "Yes": "Yess!", "No": "No!", "Ten.": "Tenn." };
-function spoken(text){ return SAY_AS[text] || text; }
+
+/* === Pronunciation of "Mum" ===
+   The voice was saying "mauhm". Change the spelling below until it sounds right.
+   To test: type  Hello, Mum.  into "Redo one phrase" and click Generate this one.
+   Good ones to try: "Mumm", "Muhm", "Mom", "Mam". (The saved file is still mum.) */
+const MUM_AS = "Mumm";
+const WORD_FIXES = [ [/\bMum\b/gi, MUM_AS] ];
+function applyWordFixes(t){ let s=t; for(const [re,rep] of WORD_FIXES) s=s.replace(re,rep); return s; }
+function spoken(text){ return applyWordFixes(SAY_AS[text] || text); }
 
 /* Pads a clip with a little silence at the start and end and rewrites a clean
    WAV header. This stops short phrases (like "Yes") being cut off, and fixes
