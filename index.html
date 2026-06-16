@@ -49,6 +49,12 @@
     h1{font-size:clamp(.85rem,3.2vw,1.1rem);}
     #title-sub{font-size:clamp(.6rem,2vw,.78rem);}
   }
+  /* Landscape (incl. tablets): keep the header compact, don't scale up with width */
+  @media (orientation:landscape){
+    header{padding:6px 18px;gap:10px;}
+    h1{font-size:clamp(1rem,1.9vw,1.25rem);}
+    #title-sub{font-size:clamp(.62rem,1.3vw,.82rem);}
+  }
   #say{
     flex:0 1 auto;margin-left:auto;align-self:stretch;
     display:flex;align-items:center;justify-content:center;
@@ -69,6 +75,9 @@
   @media (orientation:portrait){
     #say{font-size:clamp(.9rem,2.7vw,1.2rem);padding:7px 12px;max-width:54%;}
   }
+  @media (orientation:landscape){
+    #say{font-size:clamp(1rem,1.9vw,1.3rem);padding:7px 14px;}
+  }
   main{flex:1 1 auto;padding:var(--gap);overflow-y:auto;-webkit-overflow-scrolling:touch;display:flex;flex-direction:column;}
   .grid{
     display:flex;flex-wrap:wrap;
@@ -78,6 +87,7 @@
   }
   .tile{
     border:none;cursor:pointer;flex:0 0 auto;position:relative;
+    touch-action:manipulation;-webkit-touch-callout:none;-webkit-user-select:none;
     background:var(--panel);
     color:var(--ink);
     border-radius:var(--radius);
@@ -91,6 +101,7 @@
     user-select:none;overflow:hidden;
   }
   .tile .emoji{line-height:1;}
+  .tile .emoji.flip{transform:scaleX(-1);}  /* mirror limb emojis for the left side */
   .tile:active{transform:translateY(4px);box-shadow:0 2px 0 rgba(0,0,0,.30);}
   .tile::after{
     content:"";position:absolute;inset:0;border-radius:inherit;
@@ -131,7 +142,7 @@
 <div id="app">
   <header>
     <div style="flex:1">
-      <h1 id="title">Communicake v1.01</h1>
+      <h1 id="title">Communicake v1.30</h1>
       <div id="title-sub"></div>
     </div>
     <div id="say" aria-live="polite"></div>
@@ -148,6 +159,7 @@
   liability for any loss or harm arising from its use.
 </div>
 
+<script src="tts/mespeak.bundle.js"></script>
 <script>
 /* ============================================================
    EASY TO EDIT: all buttons are defined here.
@@ -155,7 +167,7 @@
    ============================================================ */
 const SCREENS = {
   home: {
-    title: "Communicake v1.01",
+    title: "Communicake v1.30",
     sub: "",  // set dynamically based on browser (Chrome check below)
     tiles: [
       { label:"Ice",         emoji:"🧊", class:"c-drink",   screen:"ice" },
@@ -164,9 +176,56 @@ const SCREENS = {
       { label:"Too hot",     emoji:"🥵", class:"c-feel",    say:"I am too hot." },
       { label:"Too cold",    emoji:"🥶", class:"c-feel",    say:"I am too cold." },
       { label:"I'm in pain", emoji:"🤕", class:"c-nav",     screen:"pain_side" },
+      { label:"Hello",       emoji:"👋", class:"c-nav",     screen:"hello" },
+      { label:"Numbers",     emoji:"🔢", class:"c-nav",     screen:"numbers" },
       { label:"Yes",         emoji:"👍", class:"c-yes" },
       { label:"No",          emoji:"👎", class:"c-no" },
       { label:"Thank you",   emoji:"🙏", class:"c-comfort" },
+    ]
+  },
+  hello: {
+    title: "Say hello",
+    sub: "Tap a name",
+    tiles: [
+      { label:"Mum",       emoji:"👩", class:"c-comfort", screen:"talk", person:"Mum" },
+      { label:"Brian",     emoji:"👨", class:"c-comfort", screen:"talk", person:"Brian" },
+      { label:"Realene",   emoji:"👩", class:"c-comfort", screen:"talk", person:"Realene" },
+      { label:"Abby",      emoji:"👧", class:"c-comfort", screen:"talk", person:"Abby" },
+      { label:"Diane",     emoji:"👩", class:"c-comfort", screen:"talk", person:"Diane" },
+      { label:"Christine", emoji:"👩", class:"c-comfort", screen:"talk", person:"Christine" },
+      { label:"David",     emoji:"👨", class:"c-comfort", screen:"talk", person:"David" },
+    ]
+  },
+  talk: {
+    title: "Talking to {name}",
+    sub: "Tap something to say",
+    tiles: [
+      { label:"Hello",            emoji:"👋", class:"c-comfort", say:"Hello {name}." },
+      { label:"How are you?",     emoji:"🙂", class:"c-feel",    say:"How are you?" },
+      { label:"I love you",       emoji:"❤️", class:"c-comfort", say:"I love you." },
+      { label:"Glad you're here", emoji:"😊", class:"c-feel",    say:"I am glad you are here." },
+      { label:"Can you stay?",    emoji:"🪑", class:"c-action",  say:"Can you stay with me a while?" },
+      { label:"Hold my hand",     emoji:"🤝", class:"c-action",  say:"Please hold my hand." },
+      { label:"I missed you",     emoji:"🥹", class:"c-comfort", say:"I missed you." },
+      { label:"Thanks for coming",emoji:"🙏", class:"c-comfort", say:"Thank you for coming." },
+      { label:"Come back later",  emoji:"⏰", class:"c-action",  say:"Can you come back later?" },
+      { label:"Goodbye",          emoji:"👋", class:"c-nav",     say:"Goodbye for now." },
+    ]
+  },
+  numbers: {
+    title: "Numbers",
+    sub: "Tap a number",
+    tiles: [
+      { label:"1",  emoji:"1️⃣", class:"c-feel", say:"One." },
+      { label:"2",  emoji:"2️⃣", class:"c-feel", say:"Two." },
+      { label:"3",  emoji:"3️⃣", class:"c-feel", say:"Three." },
+      { label:"4",  emoji:"4️⃣", class:"c-feel", say:"Four." },
+      { label:"5",  emoji:"5️⃣", class:"c-feel", say:"Five." },
+      { label:"6",  emoji:"6️⃣", class:"c-feel", say:"Six." },
+      { label:"7",  emoji:"7️⃣", class:"c-feel", say:"Seven." },
+      { label:"8",  emoji:"8️⃣", class:"c-feel", say:"Eight." },
+      { label:"9",  emoji:"9️⃣", class:"c-feel", say:"Nine." },
+      { label:"10", emoji:"🔟", class:"c-feel", say:"Ten." },
     ]
   },
   ice: {
@@ -253,27 +312,89 @@ const SCREENS = {
 
 /* ---------- engine ---------- */
 let current = "home";
+let person = "";   // who the "talk" screen is addressing
 let history = [];
+function fill(s){ return String(s==null?"":s).replace(/\{name\}/g, person); }
 const grid = document.getElementById("grid");
 const sayBanner = document.getElementById("say");
 
+/* Bundled on-the-fly speech engine (meSpeak) - works offline on ANY device,
+   no system voice required. */
+let MESPEAK_READY = false;
+try{
+  if(window.meSpeak && window.meSpeak.loadConfig){
+    window.meSpeak.loadConfig("tts/mespeak_config.json");
+    window.meSpeak.loadVoice("tts/en/en-us.json", function(){ MESPEAK_READY = true; });
+  }
+}catch(e){}
+
+function meSpeakSay(text){
+  try{
+    if(window.meSpeak && window.meSpeak.speak){
+      window.meSpeak.stop && window.meSpeak.stop();
+      var opts = { variant:"m3", speed:150, pitch:42, amplitude:170, wordgap:1 };
+      try{ window.meSpeak.speak(text, opts); }catch(_){ window.meSpeak.speak(text, { speed:150, pitch:45 }); }
+      return true;
+    }
+  }catch(e){}
+  return false;
+}
+function webSpeechSay(text){
+  try{
+    var synth = window.speechSynthesis;
+    if(synth){
+      synth.cancel();
+      var u = new SpeechSynthesisUtterance(text);
+      u.rate = 0.95; u.pitch = 1.0; u.volume = 1.0; u.lang = "en-US";
+      var v = pickVoice(); if(v) u.voice = v;
+      synth.speak(u);
+      return true;
+    }
+  }catch(e){}
+  return false;
+}
 function speak(text){
   if(!text) return;
+  // 1) Native device voice (natural) IF the Capacitor TTS plugin is installed
   try{
-    const synth = window.speechSynthesis;
-    if(!synth) return;
-    synth.cancel();
-    const u = new SpeechSynthesisUtterance(text);
-    u.rate = 0.95; u.pitch = 1.0; u.volume = 1.0; u.lang = "en-US";
-    const v = pickVoice();
-    if(v) u.voice = v;
-    synth.speak(u);
+    var cap = window.Capacitor;
+    if(cap && cap.Plugins && cap.Plugins.TextToSpeech){
+      cap.Plugins.TextToSpeech.stop().catch(function(){});
+      cap.Plugins.TextToSpeech.speak({ text:text, lang:"en-US", rate:1.0, pitch:1.0, volume:1.0, category:"playback" })
+        .catch(function(){ meSpeakSay(text); });
+      return;
+    }
   }catch(e){}
+  // 2) No native plugin: inside the app the WebView speech is unreliable, so prefer
+  //    the bundled meSpeak; on the website prefer the browser voice.
+  if(window.Capacitor){
+    if(meSpeakSay(text)) return;
+    webSpeechSay(text);
+  } else {
+    if(webSpeechSay(text)) return;
+    meSpeakSay(text);
+  }
 }
 let VOICES = [];
 function loadVoices(){ try{ VOICES = window.speechSynthesis.getVoices() || []; }catch(e){ VOICES = []; } }
 function pickVoice(){ if(!VOICES.length) loadVoices(); return VOICES.find(v => /^en/i.test(v.lang)) || VOICES[0] || null; }
 if("speechSynthesis" in window){ loadVoices(); window.speechSynthesis.onvoiceschanged = loadVoices; }
+
+function slug(s){ return String(s).toLowerCase().replace(/[^a-z0-9]+/g,"_").replace(/^_+|_+$/g,""); }
+let _clip = null;
+function playClip(text){
+  // Plays a bundled recording at audio/<slug>.wav (or .mp3) if present; rejects if none.
+  if(_clip){ try{ _clip.pause(); }catch(e){} _clip = null; }
+  return new Promise(function(resolve,reject){
+    var exts = ["wav","mp3"], i = 0;
+    (function go(){
+      if(i >= exts.length){ reject(); return; }
+      var a = new Audio("audio/" + slug(text) + "." + exts[i++]);
+      _clip = a;
+      a.play().then(function(){ resolve(); }).catch(function(){ go(); });
+    })();
+  });
+}
 
 function showBanner(text){
   sayBanner.textContent = text;
@@ -283,8 +404,8 @@ function showBanner(text){
 /* ---------- rendering ---------- */
 function render(){
   const s = SCREENS[current];
-  document.getElementById("title").textContent = s.title;
-  document.getElementById("title-sub").textContent = s.sub;
+  document.getElementById("title").textContent = fill(s.title);
+  document.getElementById("title-sub").textContent = fill(s.sub);
   const tiles = s.tiles.slice();
   // Back button is the FIRST tile in the grid (top of the button rows), except on home.
   if(current !== "home"){
@@ -294,8 +415,21 @@ function render(){
   tiles.forEach(t=>{
     const b = document.createElement("button");
     b.className = "tile " + (t.class || "");
-    b.innerHTML = '<span class="emoji">'+(t.emoji||"")+'</span><span class="label">'+t.label+'</span>';
-    b.addEventListener("click", (e)=>onTile(t, b, e));
+    var _txt = ((t.say||"")+" "+(t.label||"")).toLowerCase();
+    var _flip = ("💪🦾✋🦵🦶".indexOf(t.emoji) >= 0 && /right/.test(_txt));  /* limb emojis face left by default; mirror them for the right side */
+    b.innerHTML = '<span class="emoji'+(_flip?" flip":"")+'">'+(t.emoji||"")+'</span><span class="label">'+t.label+'</span>';
+    if(t.egg){
+      let holdTimer=null, fired=false;
+      const start=()=>{ fired=false; holdTimer=setTimeout(()=>{ fired=true; startEgg(t,b); }, t.egg.holdMs||350); };
+      const cancel=()=>{ if(holdTimer){ clearTimeout(holdTimer); holdTimer=null; } if(fired){ stopEgg(b); } };
+      b.addEventListener("pointerdown", start);
+      b.addEventListener("pointerup", cancel);
+      b.addEventListener("pointerleave", cancel);
+      b.addEventListener("pointercancel", cancel);
+      b.addEventListener("click", (e)=>{ if(fired){ e.preventDefault(); e.stopImmediatePropagation(); fired=false; return; } onTile(t, b, e); });
+    } else {
+      b.addEventListener("click", (e)=>onTile(t, b, e));
+    }
     grid.appendChild(b);
   });
   fitLayout();
@@ -352,6 +486,7 @@ window.addEventListener("resize", ()=>{ clearTimeout(_ft); _ft=setTimeout(fitLay
 window.addEventListener("orientationchange", ()=>setTimeout(fitLayout,300));
 
 function onTile(t, el, e){
+  stopAudio();   // never let taps stack on top of each other
   // anchor the glow at the tap point (fallback to centre for keyboard taps)
   if(e && typeof e.clientX === "number" && e.clientX){
     const r = el.getBoundingClientRect();
@@ -365,19 +500,65 @@ function onTile(t, el, e){
   el.classList.add("flash");
   setTimeout(()=>el.classList.remove("flash"), 600);
   if(t.back){ goBack(); return; }
-  if(t.screen){ history.push(current); current = t.screen; render(); return; }
-  const sentence = t.say || t.label;
+  if(t.screen){ if(t.person) person = t.person; history.push(current); current = t.screen; render(); return; }
+  const sentence = fill(t.say || t.label);
   showBanner(sentence);
-  speak(sentence);
+  if(t.noClip){ speak(sentence); }                 // always use the live voice for this tile
+  else { playClip(sentence).catch(function(){ speak(sentence); }); }  // prefer recording, fall back to voice
+}
+function stopAudio(){
+  try{ if(_clip){ _clip.pause(); _clip = null; } }catch(e){}
+  try{ if(_eggSrc){ _eggSrc.stop(); _eggSrc = null; } }catch(e){}
+  try{ if(window.meSpeak && window.meSpeak.stop) window.meSpeak.stop(); }catch(e){}
+  try{ if(window.speechSynthesis) window.speechSynthesis.cancel(); }catch(e){}
 }
 function goBack(){ current = history.pop() || "home"; render(); }
+
+/* Easter egg: hold a tile to repeat its sound on a loop while held
+   (e.g. hold No -> "no, no, no, no..." until you let go). */
+let _egg = null, _eggCtx = null, _eggSrc = null, _eggBuf = {};
+function startEgg(t, el){
+  if(el) el.classList.add("flash");
+  showBanner(t.egg.banner || t.label);
+  var name = slug(t.egg.clip || t.label);
+  // Preferred: Web Audio loops just the sustained vowel region -> smooth "no-oooo"
+  try{
+    _eggCtx = _eggCtx || new (window.AudioContext || window.webkitAudioContext)();
+    var ctx = _eggCtx;
+    if(ctx.state === "suspended") ctx.resume();
+    function playBuf(buf){
+      try{ if(_eggSrc){ _eggSrc.stop(); } }catch(e){}
+      var d = buf.duration, s = ctx.createBufferSource();
+      s.buffer = buf; s.loop = true;
+      s.loopStart = (t.egg.loopStart != null ? t.egg.loopStart : 0.45) * d;  // start of the held vowel
+      s.loopEnd   = (t.egg.loopEnd   != null ? t.egg.loopEnd   : 0.85) * d;  // end of the held vowel
+      s.connect(ctx.destination); s.start(0); _eggSrc = s;
+    }
+    if(_eggBuf[name]){ playBuf(_eggBuf[name]); return; }
+    fetch("audio/" + name + ".wav").then(function(r){ return r.arrayBuffer(); })
+      .then(function(ab){ return ctx.decodeAudioData(ab); })
+      .then(function(buf){ _eggBuf[name] = buf; playBuf(buf); })
+      .catch(function(){ eggFallback(t); });
+    return;
+  }catch(e){ eggFallback(t); }
+}
+function eggFallback(t){
+  try{
+    _egg = new Audio("audio/" + slug(t.egg.clip || t.egg.repeat || t.label) + ".wav");
+    _egg.loop = true;
+    _egg.play().catch(function(){ try{ speak(t.egg.banner || t.label); }catch(_){} });
+  }catch(e){ try{ speak(t.egg.banner || t.label); }catch(_){} }
+}
+function stopEgg(el){
+  try{ if(_eggSrc){ _eggSrc.stop(); _eggSrc = null; } }catch(e){}
+  if(_egg){ try{ _egg.pause(); }catch(e){} _egg = null; }
+  if(el) el.classList.remove("flash");
+}
 
 /* Speech voice is reliable in Chrome; show a warning in other browsers. */
 const IS_CHROME = /Chrome|CriOS/.test(navigator.userAgent)
   && !/Edg|OPR|SamsungBrowser|Firefox|FxiOS|YaBrowser/i.test(navigator.userAgent);
-SCREENS.home.sub = IS_CHROME
-  ? "Tap a button — it will speak out loud"
-  : "⚠️ Please open this in Google Chrome — the voice only works in Chrome.";
+SCREENS.home.sub = "Tap a button — it will speak out loud";
 
 /* footer year + first paint */
 document.getElementById("year").textContent = new Date().getFullYear();

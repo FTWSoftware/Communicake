@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Communicake — Voice Clip Generator</title>
+<style>
+  body{font-family:system-ui,Segoe UI,Roboto,sans-serif;background:#0f172a;color:#f8fafc;margin:0;padding:24px;line-height:1.5;}
+  .wrap{max-width:760px;margin:0 auto;}
+  h1{font-size:1.4rem;} 
+  select,button{font-size:1rem;padding:10px 14px;border-radius:10px;border:1px solid #334155;background:#1e293b;color:#f8fafc;}
+  button{background:#15803d;border:none;font-weight:800;cursor:pointer;}
+  button:disabled{opacity:.5;cursor:default;}
+  #log{margin-top:16px;background:#1e293b;border-radius:10px;padding:12px;height:280px;overflow:auto;font-size:.85rem;white-space:pre-wrap;}
+  .row{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:12px 0;}
+  a.dl{display:inline-block;margin-top:12px;color:#38bdf8;font-weight:800;}
+  code{background:#0b1220;padding:2px 6px;border-radius:6px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🎂 Communicake — Voice Clip Generator</h1>
+  <p>This makes natural-voice (Piper) audio clips for every phrase, fully in your browser.
+  Pick a voice, click Generate, wait, then download the zip. Unzip it into
+  <code>capacitor-app/www/audio/</code> (and your website's <code>audio/</code>), then rebuild.</p>
+  <p><strong>Needs internet the first time</strong> (it downloads the chosen voice, ~20–60MB). After that the clips are bundled and the app works offline.</p>
+
+  <div class="row">
+    <label for="voice">Voice:</label>
+    <select id="voice">
+      <option value="en_US-ryan-medium">English US — Ryan (male, natural)</option>
+      <option value="en_US-hfc_male-medium">English US — HFC male</option>
+      <option value="en_US-amy-medium">English US — Amy (female)</option>
+      <option value="en_US-hfc_female-medium">English US — HFC female</option>
+      <option value="en_GB-alan-medium">English UK — Alan (male)</option>
+      <option value="en_GB-cori-medium">English UK — Cori (female)</option>
+    </select>
+    <button id="go">Generate all clips</button>
+    <button id="goNew" style="background:#0e7490;">Generate new clips only</button>
+  </div>
+
+  <div class="row" style="border-top:1px solid #334155;padding-top:14px;">
+    <label for="one">Redo one phrase:</label>
+    <input id="one" type="text" placeholder="e.g. Yes" style="font-size:1rem;padding:10px 14px;border-radius:10px;border:1px solid #334155;background:#1e293b;color:#f8fafc;min-width:220px;">
+    <button id="goOne">Generate this one</button>
+  </div>
+
+  <div id="log">Ready.</div>
+  <div id="out"></div>
+</div>
+
+<script type="module">
+import * as tts from "https://cdn.jsdelivr.net/npm/@diffusionstudio/vits-web@1.0.3/+esm";
+import JSZip from "https://cdn.jsdelivr.net/npm/jszip@3.10.1/+esm";
+
+const PHRASES = ["Please change the bed.", "Please help me sit up.", "I am too hot.", "I am too cold.", "Yes", "No", "Thank you", "I would like some ice in my mouth.", "Please put ice on my forehead.", "Please put ice on my neck.", "Please put ice on my left shoulder.", "Please put ice on my left arm.", "Please put ice on my left hand.", "Please put ice on my left hip.", "Please put ice on my left leg.", "Please put ice on my left foot.", "Please put ice on my right shoulder.", "Please put ice on my right arm.", "Please put ice on my right hand.", "Please put ice on my right hip.", "Please put ice on my right leg.", "Please put ice on my right foot.", "My left shoulder is hot and in pain.", "My left arm is in pain.", "My left hand is in pain.", "My left hip is in pain.", "My left leg is in pain.", "My left foot is in pain.", "My right shoulder is hot and in pain.", "My right arm is in pain.", "My right hand is in pain.", "My right hip is in pain.", "My right leg is in pain.", "My right foot is in pain.", "My head is in pain.", "My eyes hurt.", "My mouth hurts.", "My throat hurts.", "My neck is in pain.", "My chest hurts.", "Hello Mum.", "Hello Brian.", "Hello Realene.", "Hello Abby.", "Hello Diane.", "Hello Christine.", "Hello David.", "How are you?", "I love you.", "I am glad you are here.", "Can you stay with me a while?", "Please hold my hand.", "I missed you.", "Thank you for coming.", "Can you come back later?", "Goodbye for now.", "One.", "Two.", "Three.", "Four.", "Five.", "Six.", "Seven.", "Eight.", "Nine.", "Ten."];
+// The phrases added in the "Hello / family" update — use this for a quick top-up.
+const NEW_PHRASES = ["Hello Mum.", "Hello Brian.", "Hello Realene.", "Hello Abby.", "Hello Diane.", "Hello Christine.", "Hello David.", "How are you?", "I love you.", "I am glad you are here.", "Can you stay with me a while?", "Please hold my hand.", "I missed you.", "Thank you for coming.", "Can you come back later?", "Goodbye for now.", "One.", "Two.", "Three.", "Four.", "Five.", "Six.", "Seven.", "Eight.", "Nine.", "Ten."];
+const logEl=document.getElementById("log");
+const out=document.getElementById("out");
+const go=document.getElementById("go");
+function log(m){ logEl.textContent += "\n"+m; logEl.scrollTop=logEl.scrollHeight; }
+function slug(s){ return String(s).toLowerCase().replace(/[^a-z0-9]+/g,"_").replace(/^_+|_+$/g,""); }
+
+/* Pads a clip with a little silence at the start and end and rewrites a clean
+   WAV header. This stops short phrases (like "Yes") being cut off, and fixes
+   any clips whose header length was slightly wrong. */
+async function padWav(wavBlob, leadMs=120, tailMs=450){
+  try{
+    const ab = await wavBlob.arrayBuffer();
+    const dv = new DataView(ab);
+    let off=12, ch=1, rate=22050, bits=16, dOff=-1, dLen=0;
+    while(off+8 <= dv.byteLength){
+      const id = String.fromCharCode(dv.getUint8(off),dv.getUint8(off+1),dv.getUint8(off+2),dv.getUint8(off+3));
+      const size = dv.getUint32(off+4,true);
+      if(id==="fmt "){ ch=dv.getUint16(off+10,true); rate=dv.getUint32(off+12,true); bits=dv.getUint16(off+22,true); }
+      else if(id==="data"){ dOff=off+8; dLen=size; }
+      off += 8 + size + (size%2);
+    }
+    if(dOff<0) return wavBlob;
+    const bps = bits/8;
+    const lead = Math.round(rate*leadMs/1000)*ch*bps;
+    const tail = Math.round(rate*tailMs/1000)*ch*bps;
+    const newLen = lead + dLen + tail;
+    const out = new ArrayBuffer(44 + newLen);
+    const o = new DataView(out);
+    const ws=(p,s)=>{ for(let i=0;i<s.length;i++) o.setUint8(p+i,s.charCodeAt(i)); };
+    ws(0,"RIFF"); o.setUint32(4,36+newLen,true); ws(8,"WAVE");
+    ws(12,"fmt "); o.setUint32(16,16,true); o.setUint16(20,1,true);
+    o.setUint16(22,ch,true); o.setUint32(24,rate,true);
+    o.setUint32(28,rate*ch*bps,true); o.setUint16(32,ch*bps,true); o.setUint16(34,bits,true);
+    ws(36,"data"); o.setUint32(40,newLen,true);
+    new Uint8Array(out,44+lead,dLen).set(new Uint8Array(ab,dOff,dLen));
+    return new Blob([out],{type:"audio/wav"});
+  }catch(e){ return wavBlob; }  // if anything odd, keep the original
+}
+
+const goNew=document.getElementById("goNew");
+async function generate(list, zipName){
+  go.disabled=true; goNew.disabled=true; out.innerHTML=""; logEl.textContent="Starting…";
+  const voiceId=document.getElementById("voice").value;
+  try{
+    log("Loading voice: "+voiceId+" (first time downloads the model, please wait)…");
+    const zip=new JSZip();
+    let n=0;
+    for(const text of list){
+      const synthText = /[.!?,:;]$/.test(text) ? text : text + ".";
+      const wav=await padWav(await tts.predict({ text: synthText, voiceId }));
+      zip.file(slug(text)+".wav", wav);
+      n++; log("("+n+"/"+list.length+") "+text);
+    }
+    log("Zipping "+n+" clips…");
+    const blob=await zip.generateAsync({type:"blob"});
+    const url=URL.createObjectURL(blob);
+    out.innerHTML='<a class="dl" href="'+url+'" download="'+zipName+'">⬇ Download '+zipName+'</a>';
+    log("Done! Click the download link above.");
+  }catch(e){
+    log("ERROR: "+(e && e.message ? e.message : e));
+    log("If it failed to load the voice, check your internet and try again.");
+  }
+  go.disabled=false; goNew.disabled=false;
+}
+go.addEventListener("click", ()=>generate(PHRASES, "communicake-audio.zip"));
+goNew.addEventListener("click", ()=>generate(NEW_PHRASES, "communicake-new-audio.zip"));
+
+document.getElementById("goOne").addEventListener("click", async ()=>{
+  const text=document.getElementById("one").value.trim();
+  if(!text){ log("Type a phrase first."); return; }
+  const voiceId=document.getElementById("voice").value;
+  out.innerHTML=""; log("Generating: "+text+" …");
+  try{
+    const synthText = /[.!?,:;]$/.test(text) ? text : text + ".";
+    const wav=await padWav(await tts.predict({ text: synthText, voiceId }));
+    const url=URL.createObjectURL(wav);
+    out.innerHTML='<a class="dl" href="'+url+'" download="'+slug(text)+'.wav">⬇ Download '+slug(text)+'.wav</a>';
+    log("Done. Save it as "+slug(text)+".wav into your voice_clips folder.");
+  }catch(e){ log("ERROR: "+(e&&e.message?e.message:e)); }
+});
+</script>
+</body>
+</html>
