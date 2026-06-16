@@ -28,15 +28,19 @@
   <div class="row">
     <label for="voice">Voice:</label>
     <select id="voice">
-      <option value="en_US-ryan-medium">English US — Ryan (male, natural)</option>
+      <option value="en_GB-alan-medium" selected>English UK — Alan (male, says "mum") ✓</option>
+      <option value="en_GB-alba-medium">English UK — Alba (female, says "mum")</option>
+      <option value="en_GB-cori-medium">English UK — Cori (female, says "mum")</option>
+      <option value="en_GB-northern_english_male-medium">English UK — Northern male (says "mum")</option>
+      <option value="en_US-ryan-medium">English US — Ryan (male, says "mom")</option>
       <option value="en_US-hfc_male-medium">English US — HFC male</option>
       <option value="en_US-amy-medium">English US — Amy (female)</option>
       <option value="en_US-hfc_female-medium">English US — HFC female</option>
-      <option value="en_GB-alan-medium">English UK — Alan (male)</option>
-      <option value="en_GB-cori-medium">English UK — Cori (female)</option>
     </select>
     <button id="go">Generate all clips</button>
     <button id="goNew" style="background:#0e7490;">Generate new clips only</button>
+    <button id="goDir" style="background:#7c3a60;">Save straight to a folder (live)</button>
+    <label style="display:flex;align-items:center;gap:6px;font-size:.9rem;"><input type="checkbox" id="resume" checked style="width:18px;height:18px;"> Resume (skip clips already in the folder)</label>
   </div>
 
   <div class="row" style="border-top:1px solid #334155;padding-top:14px;">
@@ -61,6 +65,12 @@ const out=document.getElementById("out");
 const go=document.getElementById("go");
 function log(m){ logEl.textContent += "\n"+m; logEl.scrollTop=logEl.scrollHeight; }
 function slug(s){ return String(s).toLowerCase().replace(/[^a-z0-9]+/g,"_").replace(/^_+|_+$/g,""); }
+
+/* Pronunciation overrides: the file is still saved under the normal phrase
+   (e.g. yes.wav), but it is SPOKEN using the text on the right. Tweak these if
+   a word sounds wrong with the chosen voice. */
+const SAY_AS = { "Yes": "Yess!", "No": "No!", "Ten.": "Tenn." };
+function spoken(text){ return SAY_AS[text] || text; }
 
 /* Pads a clip with a little silence at the start and end and rewrites a clean
    WAV header. This stops short phrases (like "Yes") being cut off, and fixes
@@ -104,7 +114,8 @@ async function generate(list, zipName){
     const zip=new JSZip();
     let n=0;
     for(const text of list){
-      const synthText = /[.!?,:;]$/.test(text) ? text : text + ".";
+      const base = spoken(text);
+      const synthText = /[.!?,:;]$/.test(base) ? base : base + ".";
       const wav=await padWav(await tts.predict({ text: synthText, voiceId }));
       zip.file(slug(text)+".wav", wav);
       n++; log("("+n+"/"+list.length+") "+text);
@@ -123,13 +134,54 @@ async function generate(list, zipName){
 go.addEventListener("click", ()=>generate(PHRASES, "communicake-audio.zip"));
 goNew.addEventListener("click", ()=>generate(NEW_PHRASES, "communicake-new-audio.zip"));
 
+/* Writes each clip straight into a folder you choose, one at a time, as it's
+   made. Anything finished before a crash is already saved, and a clip that
+   fails is skipped instead of stopping the whole run. */
+const goDir=document.getElementById("goDir");
+goDir.addEventListener("click", async ()=>{
+  if(!window.showDirectoryPicker){
+    log("This browser can't save to a folder directly. Use Chrome or Edge, or use the zip buttons instead.");
+    return;
+  }
+  let dir;
+  try{ dir = await window.showDirectoryPicker(); }
+  catch(e){ log("Folder choice cancelled."); return; }
+  go.disabled=true; goNew.disabled=true; goDir.disabled=true; out.innerHTML="";
+  logEl.textContent="Saving into the folder you chose…";
+  const voiceId=document.getElementById("voice").value;
+  const resume=document.getElementById("resume").checked;
+  let ok=0, skip=0, fail=0, i=0;
+  for(const text of PHRASES){
+    i++;
+    const name = slug(text)+".wav";
+    try{
+      if(resume){
+        try{ await dir.getFileHandle(name); skip++; log("("+i+"/"+PHRASES.length+") already there, skipped "+name); continue; }
+        catch(_){ /* not there yet — make it */ }
+      }
+      const base = spoken(text);
+      const synthText = /[.!?,:;]$/.test(base) ? base : base + ".";
+      const wav = await padWav(await tts.predict({ text: synthText, voiceId }));
+      const fh = await dir.getFileHandle(name, { create:true });
+      const w  = await fh.createWritable();
+      await w.write(wav); await w.close();
+      ok++; log("("+i+"/"+PHRASES.length+") saved "+name);
+    }catch(e){
+      fail++; log("("+i+"/"+PHRASES.length+") FAILED "+text+" — "+(e&&e.message?e.message:e)+"  (reload the page and run again to continue)");
+    }
+  }
+  log("Finished. Made "+ok+", already-had "+skip+", failed "+fail+". If it crashed or some failed: reload the page and click this again — with Resume ticked it only does the missing ones.");
+  go.disabled=false; goNew.disabled=false; goDir.disabled=false;
+});
+
 document.getElementById("goOne").addEventListener("click", async ()=>{
   const text=document.getElementById("one").value.trim();
   if(!text){ log("Type a phrase first."); return; }
   const voiceId=document.getElementById("voice").value;
   out.innerHTML=""; log("Generating: "+text+" …");
   try{
-    const synthText = /[.!?,:;]$/.test(text) ? text : text + ".";
+    const base = spoken(text);
+    const synthText = /[.!?,:;]$/.test(base) ? base : base + ".";
     const wav=await padWav(await tts.predict({ text: synthText, voiceId }));
     const url=URL.createObjectURL(wav);
     out.innerHTML='<a class="dl" href="'+url+'" download="'+slug(text)+'.wav">⬇ Download '+slug(text)+'.wav</a>';
