@@ -594,32 +594,4 @@ function startEgg(t, el){
     if(_eggBuf[name]){ playBuf(_eggBuf[name]); return; }
     fetch("audio/" + name + ".wav").then(function(r){ return r.arrayBuffer(); })
       .then(function(ab){ return ctx.decodeAudioData(ab); })
-      .then(function(buf){ _eggBuf[name] = buf; playBuf(buf); })
-      .catch(function(){ eggFallback(t); });
-    return;
-  }catch(e){ eggFallback(t); }
-}
-function eggFallback(t){
-  try{
-    _egg = new Audio("audio/" + slug(t.egg.clip || t.egg.repeat || t.label) + ".wav");
-    _egg.loop = true;
-    _egg.play().catch(function(){ try{ speak(t.egg.banner || t.label); }catch(_){} });
-  }catch(e){ try{ speak(t.egg.banner || t.label); }catch(_){} }
-}
-function stopEgg(el){
-  try{ if(_eggSrc){ _eggSrc.stop(); _eggSrc = null; } }catch(e){}
-  if(_egg){ try{ _egg.pause(); }catch(e){} _egg = null; }
-  if(el) el.classList.remove("flash");
-}
-
-/* Speech voice is reliable in Chrome; show a warning in other browsers. */
-const IS_CHROME = /Chrome|CriOS/.test(navigator.userAgent)
-  && !/Edg|OPR|SamsungBrowser|Firefox|FxiOS|YaBrowser/i.test(navigator.userAgent);
-SCREENS.home.sub = "Tap a button — it will speak out loud";
-
-/* footer year + first paint */
-document.getElementById("year").textContent = new Date().getFullYear();
-render();
-</script>
-</body>
-</html>
+      .then(function(buf){ _eggBuf[name] = buf; playBuf(buf); }
