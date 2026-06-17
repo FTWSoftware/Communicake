@@ -142,7 +142,7 @@
 <div id="app">
   <header>
     <div style="flex:1">
-      <h1 id="title">Communicake v1.30</h1>
+      <h1 id="title">Communicake v1.31</h1>
       <div id="title-sub"></div>
     </div>
     <div id="say" aria-live="polite"></div>
@@ -167,7 +167,7 @@
    ============================================================ */
 const SCREENS = {
   home: {
-    title: "Communicake v1.30",
+    title: "Communicake v1.31",
     sub: "",  // set dynamically based on browser (Chrome check below)
     tiles: [
       { label:"Ice",         emoji:"🧊", class:"c-drink",   screen:"ice" },
@@ -199,17 +199,24 @@ const SCREENS = {
   talk: {
     title: "Talking to {name}",
     sub: "Tap something to say",
+    /* Each tile here is built from PARTS: a phrase clip + the person's name clip,
+       played back-to-back (e.g. "Thank you for coming" + "David"). That means you
+       only have to generate 10 phrase clips and 7 name clips, instead of a separate
+       recording for every name. {name} in `parts` is swapped for the person tapped.
+       `say` is still the full sentence shown on screen and used by the live voice if
+       a clip is missing. To add a name, just add a tile on the `hello` screen and
+       generate that one name clip. */
     tiles: [
-      { label:"Hello",            emoji:"👋", class:"c-comfort", say:"Hello, {name}." },
-      { label:"How are you?",     emoji:"🙂", class:"c-feel",    say:"How are you, {name}?" },
-      { label:"I love you",       emoji:"❤️", class:"c-comfort", say:"I love you, {name}." },
-      { label:"Glad you're here", emoji:"😊", class:"c-feel",    say:"{name}, I am glad you are here." },
-      { label:"Can you stay?",    emoji:"🪑", class:"c-action",  say:"Can you stay with me a while, {name}?" },
-      { label:"Hold my hand",     emoji:"🤝", class:"c-action",  say:"Please hold my hand, {name}." },
-      { label:"I missed you",     emoji:"🥹", class:"c-comfort", say:"I missed you, {name}." },
-      { label:"Thanks for coming",emoji:"🙏", class:"c-comfort", say:"Thank you for coming, {name}." },
-      { label:"Come back later",  emoji:"⏰", class:"c-action",  say:"Can you come back later, {name}?" },
-      { label:"Goodbye",          emoji:"👋", class:"c-nav",     say:"Goodbye for now, {name}." },
+      { label:"Hello",            emoji:"👋", class:"c-comfort", say:"Hello, {name}.",                        clip:"hello_{name}",                       parts:["Hello", "{name}"] },
+      { label:"How are you?",     emoji:"🙂", class:"c-feel",    say:"How are you, {name}?",                  clip:"hi_{name}_how_are_you",              parts:["How are you", "{name}"] },
+      { label:"I love you",       emoji:"❤️", class:"c-comfort", say:"I love you, {name}.",                   clip:"hi_{name}_i_love_you",               parts:["I love you", "{name}"] },
+      { label:"Glad you're here", emoji:"😊", class:"c-feel",    say:"{name}, I am glad you are here.",        clip:"hi_{name}_i_am_glad_you_are_here",   parts:["{name}", "I am glad you are here"] },
+      { label:"Can you stay?",    emoji:"🪑", class:"c-action",  say:"Can you stay with me a while, {name}?", clip:"hi_{name}_can_you_stay_with_me_a_while", parts:["Can you stay with me a while", "{name}"] },
+      { label:"Hold my hand",     emoji:"🤝", class:"c-action",  say:"Please hold my hand, {name}.",          clip:"hi_{name}_please_hold_my_hand",      parts:["Please hold my hand", "{name}"] },
+      { label:"I missed you",     emoji:"🥹", class:"c-comfort", say:"I missed you, {name}.",                 clip:"hi_{name}_i_missed_you",             parts:["I missed you", "{name}"] },
+      { label:"Thanks for coming",emoji:"🙏", class:"c-comfort", say:"Thank you for coming, {name}.",         clip:"hi_{name}_thank_you_for_coming",     parts:["Thank you for coming", "{name}"] },
+      { label:"Come back later",  emoji:"⏰", class:"c-action",  say:"Can you come back later, {name}?",      clip:"hi_{name}_can_you_come_back_later",  parts:["Can you come back later", "{name}"] },
+      { label:"Goodbye",          emoji:"👋", class:"c-nav",     say:"Goodbye for now, {name}.",              clip:"hi_{name}_goodbye_for_now",          parts:["Goodbye for now", "{name}"] },
     ]
   },
   numbers: {
@@ -396,6 +403,38 @@ function playClip(text){
   });
 }
 
+function playClipSeq(texts){
+  // Plays several bundled clips one after another (e.g. "Thank you for coming"
+  // then "David"). It checks that EVERY part exists first, so it never plays half
+  // a sentence — if any part is missing it rejects and the caller falls back to a
+  // single combined clip or the live voice.
+  if(_clip){ try{ _clip.pause(); }catch(e){} _clip = null; }
+  var exts = ["wav","mp3"];
+  function findOne(text){
+    return new Promise(function(resolve,reject){
+      var i = 0;
+      (function go(){
+        if(i >= exts.length){ reject(); return; }
+        var a = new Audio("audio/" + slug(text) + "." + exts[i++]);
+        a.addEventListener("canplaythrough", function(){ resolve(a); }, { once:true });
+        a.addEventListener("error", function(){ go(); }, { once:true });
+        a.load();
+      })();
+    });
+  }
+  return Promise.all(texts.map(findOne)).then(function(audios){
+    return new Promise(function(resolve,reject){
+      var i = 0;
+      (function next(){
+        if(i >= audios.length){ resolve(); return; }
+        var a = audios[i++]; _clip = a;
+        a.addEventListener("ended", next, { once:true });
+        a.play().catch(function(){ reject(); });
+      })();
+    });
+  });
+}
+
 function showBanner(text){
   sayBanner.textContent = text;
   sayBanner.classList.add("show");   /* stays visible until the next phrase */
@@ -503,8 +542,26 @@ function onTile(t, el, e){
   if(t.screen){ if(t.person) person = t.person; history.push(current); current = t.screen; render(); return; }
   const sentence = fill(t.say || t.label);
   showBanner(sentence);
-  if(t.noClip){ speak(sentence); }                 // always use the live voice for this tile
-  else { playClip(sentence).catch(function(){ speak(sentence); }); }  // prefer recording, fall back to voice
+  if(t.noClip){ speak(sentence); return; }         // always use the live voice for this tile
+  if(t.clip){
+    // Prefer a single combined recording for this exact name + phrase
+    // (e.g. audio/hi_abby_i_love_you.wav). If it's missing, fall back to
+    // stitching the phrase + name part clips, then to the live voice.
+    const clipName = fill(t.clip);                  // e.g. "hi_Abby_i_love_you" -> slugged by playClip
+    playClip(clipName)
+      .catch(function(){ return t.parts ? playClipSeq(t.parts.map(fill)) : Promise.reject(); })
+      .catch(function(){ return playClip(sentence); })
+      .catch(function(){ speak(sentence); });
+  } else if(t.parts){
+    // Build the sentence from parts (phrase + name), falling back to a single
+    // combined recording, then to the live voice if neither is available.
+    const partTexts = t.parts.map(fill);
+    playClipSeq(partTexts)
+      .catch(function(){ return playClip(sentence); })
+      .catch(function(){ speak(sentence); });
+  } else {
+    playClip(sentence).catch(function(){ speak(sentence); });  // prefer recording, fall back to voice
+  }
 }
 function stopAudio(){
   try{ if(_clip){ _clip.pause(); _clip = null; } }catch(e){}

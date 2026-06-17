@@ -7,7 +7,7 @@
 <style>
   body{font-family:system-ui,Segoe UI,Roboto,sans-serif;background:#0f172a;color:#f8fafc;margin:0;padding:24px;line-height:1.5;}
   .wrap{max-width:760px;margin:0 auto;}
-  h1{font-size:1.4rem;} 
+  h1{font-size:1.4rem;}
   select,button{font-size:1rem;padding:10px 14px;border-radius:10px;border:1px solid #334155;background:#1e293b;color:#f8fafc;}
   button{background:#15803d;border:none;font-weight:800;cursor:pointer;}
   button:disabled{opacity:.5;cursor:default;}
@@ -19,35 +19,45 @@
 </head>
 <body>
 <div class="wrap">
-  <h1>🎂 Communicake — Voice Clip Generator</h1>
-  <p>This makes natural-voice (Piper) audio clips for every phrase, fully in your browser.
-  Pick a voice, click Generate, wait, then download the zip. Unzip it into
-  <code>capacitor-app/www/audio/</code> (and your website's <code>audio/</code>), then rebuild.</p>
-  <p><strong>Needs internet the first time</strong> (it downloads the chosen voice, ~20–60MB). After that the clips are bundled and the app works offline.</p>
+  <h1>Communicake — Voice Clip Generator</h1>
+  <p>Makes natural-voice (Piper) audio clips in your browser, all in the <strong>Ryan US</strong> voice.
+  It makes <strong>every clip the app needs</strong> — the buttons and pain/ice/number sentences, plus a
+  full clip for each name &amp; phrase combination (e.g. <em>"I love you, David."</em>). One click makes the lot.</p>
+  <p><strong>The easy way (Chrome or Edge):</strong> click the big blue button, and when asked, choose your
+  <code>audio</code> folder (or <code>capacitor-app/www/audio</code>). It writes every clip straight in and
+  skips any already there. Then rebuild the app — done.</p>
+  <p><strong>Needs internet the first time</strong> (it downloads the Ryan voice, ~20-60MB). After that it works offline.</p>
 
   <div class="row">
     <label for="voice">Voice:</label>
     <select id="voice">
-      <option value="en_GB-alan-medium" selected>English UK — Alan (male, says "mum") ✓</option>
-      <option value="en_GB-alba-medium">English UK — Alba (female, says "mum")</option>
-      <option value="en_GB-cori-medium">English UK — Cori (female, says "mum")</option>
-      <option value="en_GB-northern_english_male-medium">English UK — Northern male (says "mum")</option>
-      <option value="en_US-ryan-medium">English US — Ryan (male, says "mom")</option>
-      <option value="en_US-hfc_male-medium">English US — HFC male</option>
-      <option value="en_US-amy-medium">English US — Amy (female)</option>
-      <option value="en_US-hfc_female-medium">English US — HFC female</option>
+      <option value="en_US-ryan-medium" selected>English US — Ryan (male)</option>
     </select>
-    <button id="go">Generate all clips</button>
-    <button id="goNew" style="background:#0e7490;">Generate new clips only</button>
-    <button id="goDir" style="background:#7c3a60;">Save straight to a folder (live)</button>
-    <label style="display:flex;align-items:center;gap:6px;font-size:.9rem;"><input type="checkbox" id="resume" checked style="width:18px;height:18px;"> Resume (skip clips already in the folder)</label>
+    <span style="color:#94a3b8;font-size:.85rem;">Locked to Ryan US so every clip matches.</span>
+  </div>
+
+  <div class="row" style="flex-direction:column;align-items:stretch;gap:10px;border:1px solid #1d4ed8;border-radius:14px;padding:16px;background:#0b1220;">
+    <button id="goPartsSave" style="background:#1d4ed8;font-size:1.2rem;padding:18px;">⭐ Make ALL the clips the app needs — save into a folder</button>
+    <div style="font-size:.9rem;color:#cbd5e1;">When asked, choose your <code>audio</code> folder. Makes every clip the app uses (buttons, ice, pain, numbers, and a full clip for each name + phrase), all in Ryan US, and skips any already there. Then rebuild the app.</div>
+    <label style="display:flex;align-items:center;gap:6px;font-size:.9rem;"><input type="checkbox" id="resume" checked style="width:18px;height:18px;"> Skip clips already in the folder</label>
+    <button id="goParts" style="background:#0e7490;">No folder access? Download all the clips as a zip instead</button>
   </div>
 
   <div class="row" style="border-top:1px solid #334155;padding-top:14px;">
-    <label for="one">Redo one phrase:</label>
-    <input id="one" type="text" placeholder="e.g. Yes" style="font-size:1rem;padding:10px 14px;border-radius:10px;border:1px solid #334155;background:#1e293b;color:#f8fafc;min-width:220px;">
+    <label for="one">Make just one clip:</label>
+    <input id="one" type="text" placeholder="e.g. David" style="font-size:1rem;padding:10px 14px;border-radius:10px;border:1px solid #334155;background:#1e293b;color:#f8fafc;min-width:220px;">
     <button id="goOne">Generate this one</button>
   </div>
+
+  <details style="margin-top:16px;">
+    <summary style="cursor:pointer;color:#94a3b8;font-weight:700;">Advanced — old whole-sentence method (you don't need this)</summary>
+    <div style="font-size:.85rem;color:#94a3b8;margin:8px 0;">These make the non-name sentences (water, ice, pain, numbers). Names are handled by the parts button above.</div>
+    <div class="row" style="margin-top:10px;">
+      <button id="go">Generate all clips</button>
+      <button id="goNew" style="background:#0e7490;">Generate new clips only</button>
+      <button id="goDir" style="background:#7c3a60;">Save all whole-sentence clips to a folder</button>
+    </div>
+  </details>
 
   <div id="log">Ready.</div>
   <div id="out"></div>
@@ -57,52 +67,66 @@
 import * as tts from "https://cdn.jsdelivr.net/npm/@diffusionstudio/vits-web@1.0.3/+esm";
 import JSZip from "https://cdn.jsdelivr.net/npm/jszip@3.10.1/+esm";
 
-/* === People & talk phrases ===
-   PEOPLE must match the names on the "Say hello" screen in index.html.
-   TALK_TEMPLATES must match the talk-screen "say" text in index.html exactly
-   (so the saved clip names line up). {name} is filled in for each person. */
-const PEOPLE = ["Mum","Brian","Realene","Abby","Diane","Christine","David"];
-const TALK_TEMPLATES = [
-  "Hello, {name}.",
-  "How are you, {name}?",
-  "I love you, {name}.",
-  "{name}, I am glad you are here.",
-  "Can you stay with me a while, {name}?",
-  "Please hold my hand, {name}.",
-  "I missed you, {name}.",
-  "Thank you for coming, {name}.",
-  "Can you come back later, {name}?",
-  "Goodbye for now, {name}.",
-];
-const TALK_PHRASES = [];
-for(const person of PEOPLE){ for(const t of TALK_TEMPLATES){ TALK_PHRASES.push(t.replace(/\{name\}/g, person)); } }
-
-// Everything that does NOT change with the person (buttons, ice, pain, numbers).
-const BASE_PHRASES = ["Please change the bed.", "Please help me sit up.", "I am too hot.", "I am too cold.", "Yes", "No", "Thank you", "I would like some ice in my mouth.", "Please put ice on my forehead.", "Please put ice on my neck.", "Please put ice on my left shoulder.", "Please put ice on my left arm.", "Please put ice on my left hand.", "Please put ice on my left hip.", "Please put ice on my left leg.", "Please put ice on my left foot.", "Please put ice on my right shoulder.", "Please put ice on my right arm.", "Please put ice on my right hand.", "Please put ice on my right hip.", "Please put ice on my right leg.", "Please put ice on my right foot.", "My left shoulder is hot and in pain.", "My left arm is in pain.", "My left hand is in pain.", "My left hip is in pain.", "My left leg is in pain.", "My left foot is in pain.", "My right shoulder is hot and in pain.", "My right arm is in pain.", "My right hand is in pain.", "My right hip is in pain.", "My right leg is in pain.", "My right foot is in pain.", "My head is in pain.", "My eyes hurt.", "My mouth hurts.", "My throat hurts.", "My neck is in pain.", "My chest hurts.", "One.", "Two.", "Three.", "Four.", "Five.", "Six.", "Seven.", "Eight.", "Nine.", "Ten."];
-
-// All clips the app needs = base phrases + every person's talk phrases.
-const PHRASES = BASE_PHRASES.concat(TALK_PHRASES);
-// Quick top-up: just the per-person talk phrases (the ones that recently changed).
-const NEW_PHRASES = TALK_PHRASES.slice();
+const PHRASES = ["Please change the bed.", "Please help me sit up.", "I am too hot.", "I am too cold.", "Yes", "No", "Thank you", "I would like some ice in my mouth.", "Please put ice on my forehead.", "Please put ice on my neck.", "Please put ice on my left shoulder.", "Please put ice on my left arm.", "Please put ice on my left hand.", "Please put ice on my left hip.", "Please put ice on my left leg.", "Please put ice on my left foot.", "Please put ice on my right shoulder.", "Please put ice on my right arm.", "Please put ice on my right hand.", "Please put ice on my right hip.", "Please put ice on my right leg.", "Please put ice on my right foot.", "My left shoulder is hot and in pain.", "My left arm is in pain.", "My left hand is in pain.", "My left hip is in pain.", "My left leg is in pain.", "My left foot is in pain.", "My right shoulder is hot and in pain.", "My right arm is in pain.", "My right hand is in pain.", "My right hip is in pain.", "My right leg is in pain.", "My right foot is in pain.", "My head is in pain.", "My eyes hurt.", "My mouth hurts.", "My throat hurts.", "My neck is in pain.", "My chest hurts.", "Hello Mum.", "Hello Brian.", "Hello Realene.", "Hello Abby.", "Hello Diane.", "Hello Christine.", "Hello David.", "How are you?", "I love you.", "I am glad you are here.", "Can you stay with me a while?", "Please hold my hand.", "I missed you.", "Thank you for coming.", "Can you come back later?", "Goodbye for now.", "One.", "Two.", "Three.", "Four.", "Five.", "Six.", "Seven.", "Eight.", "Nine.", "Ten."];
+// The phrases added in the "Hello / family" update - use this for a quick top-up.
+const NEW_PHRASES = ["Hello Mum.", "Hello Brian.", "Hello Realene.", "Hello Abby.", "Hello Diane.", "Hello Christine.", "Hello David.", "How are you?", "I love you.", "I am glad you are here.", "Can you stay with me a while?", "Please hold my hand.", "I missed you.", "Thank you for coming.", "Can you come back later?", "Goodbye for now.", "One.", "Two.", "Three.", "Four.", "Five.", "Six.", "Seven.", "Eight.", "Nine.", "Ten."];
 const logEl=document.getElementById("log");
 const out=document.getElementById("out");
 const go=document.getElementById("go");
 function log(m){ logEl.textContent += "\n"+m; logEl.scrollTop=logEl.scrollHeight; }
 function slug(s){ return String(s).toLowerCase().replace(/[^a-z0-9]+/g,"_").replace(/^_+|_+$/g,""); }
 
+/* ===== THE FULL SET THE APP NEEDS ==========================================
+   The app plays one finished clip per tap. For the "Talking to <name>" screen
+   it plays a full combined recording (e.g. hi_david_i_love_you.wav), so we make
+   one clip for every name x phrase. Everything else (buttons, ice, pain, numbers)
+   is one clip per sentence. Each entry is { say (what's spoken/shown), file
+   (the .wav filename without extension, matching index.html) }. */
+const NAMES = ["Mum","Brian","Realene","Abby","Diane","Christine","David"];
+const TALK_TEMPLATES = [
+  { say:"Hello, {name}.",                        file:"hello_{name}" },
+  { say:"How are you, {name}?",                  file:"hi_{name}_how_are_you" },
+  { say:"I love you, {name}.",                   file:"hi_{name}_i_love_you" },
+  { say:"{name}, I am glad you are here.",        file:"hi_{name}_i_am_glad_you_are_here" },
+  { say:"Can you stay with me a while, {name}?",  file:"hi_{name}_can_you_stay_with_me_a_while" },
+  { say:"Please hold my hand, {name}.",           file:"hi_{name}_please_hold_my_hand" },
+  { say:"I missed you, {name}.",                  file:"hi_{name}_i_missed_you" },
+  { say:"Thank you for coming, {name}.",          file:"hi_{name}_thank_you_for_coming" },
+  { say:"Can you come back later, {name}?",       file:"hi_{name}_can_you_come_back_later" },
+  { say:"Goodbye for now, {name}.",               file:"hi_{name}_goodbye_for_now" },
+];
+// Solo sentences = every PHRASE except the old baked-in "Hello <name>." ones
+// (those are now made per-name as combined clips above).
+const BAKED_HELLO = new Set(["Hello Mum.","Hello Brian.","Hello Realene.","Hello Abby.","Hello Diane.","Hello Christine.","Hello David."]);
+const SOLO_CLIPS = PHRASES.filter(p=>!BAKED_HELLO.has(p)).map(say=>({ say, file:slug(say) }));
+const COMBINED_CLIPS = [];
+for(const n of NAMES) for(const t of TALK_TEMPLATES)
+  COMBINED_CLIPS.push({ say:t.say.replace(/\{name\}/g,n), file:t.file.replace(/\{name\}/g,slug(n)) });
+const ALL_CLIPS = SOLO_CLIPS.concat(COMBINED_CLIPS);  // everything the app needs, in order
+
+/* Short words (numbers, yes/no, thank you) get extra silence at the START so
+   mobile audio latency doesn't clip the first sound — that was the "cut off"
+   you heard on the numbers. Everything else uses the normal padding. */
+const SHORT_CLIPS = new Set(["one","two","three","four","five","six","seven","eight","nine","ten","yes","no","thank_you"]);
+function padFor(text){
+  return SHORT_CLIPS.has(slug(text)) ? { lead:280, tail:420 } : { lead:120, tail:450 };
+}
+
 /* Pronunciation overrides: the file is still saved under the normal phrase
    (e.g. yes.wav), but it is SPOKEN using the text on the right. Tweak these if
    a word sounds wrong with the chosen voice. */
-const SAY_AS = { "Yes": "Yess!", "No": "No!", "Ten.": "Tenn." };
+const SAY_AS = { "Two.": "Too", "Three.": "Three", "Eight.": "Ate", "Ten.": "Tenn." };
+function spoken(text){ return SAY_AS[text] || text; }
 
-/* === Pronunciation of "Mum" ===
-   The voice was saying "mauhm". Change the spelling below until it sounds right.
-   To test: type  Hello, Mum.  into "Redo one phrase" and click Generate this one.
-   Good ones to try: "Mumm", "Muhm", "Mom", "Mam". (The saved file is still mum.) */
-const MUM_AS = "Mumm";
-const WORD_FIXES = [ [/\bMum\b/gi, MUM_AS] ];
-function applyWordFixes(t){ let s=t; for(const [re,rep] of WORD_FIXES) s=s.replace(re,rep); return s; }
-function spoken(text){ return applyWordFixes(SAY_AS[text] || text); }
+/* Build the exact text we feed the voice. Short words (numbers, yes/no) sound
+   more natural said PLAINLY — a hard full stop makes Ryan add a tiny trailing
+   "uh" (that "two -> too-ah", and the clipped/short feel you heard). So for short
+   clips we drop a trailing period (keeping ! etc.). Longer sentences are unchanged. */
+function synthTextFor(rawText){
+  const base = spoken(rawText);
+  if(SHORT_CLIPS.has(slug(rawText))) return base.replace(/\.$/,"");
+  return /[.!?,:;]$/.test(base) ? base : base + ".";
+}
 
 /* Pads a clip with a little silence at the start and end and rewrites a clean
    WAV header. This stops short phrases (like "Yes") being cut off, and fixes
@@ -139,24 +163,24 @@ async function padWav(wavBlob, leadMs=120, tailMs=450){
 
 const goNew=document.getElementById("goNew");
 async function generate(list, zipName){
-  go.disabled=true; goNew.disabled=true; out.innerHTML=""; logEl.textContent="Starting…";
+  go.disabled=true; goNew.disabled=true; out.innerHTML=""; logEl.textContent="Starting...";
   const voiceId=document.getElementById("voice").value;
   try{
-    log("Loading voice: "+voiceId+" (first time downloads the model, please wait)…");
+    log("Loading voice: "+voiceId+" (first time downloads the model, please wait)...");
     const zip=new JSZip();
     let n=0;
     for(const text of list){
-      const base = spoken(text);
-      const synthText = /[.!?,:;]$/.test(base) ? base : base + ".";
-      const wav=await padWav(await tts.predict({ text: synthText, voiceId }));
+      const synthText = synthTextFor(text);
+      const pad = padFor(text);
+      const wav=await padWav(await tts.predict({ text: synthText, voiceId }), pad.lead, pad.tail);
       zip.file(slug(text)+".wav", wav);
       n++; log("("+n+"/"+list.length+") "+text);
     }
-    log("Zipping "+n+" clips…");
+    log("Zipping "+n+" clips...");
     const blob=await zip.generateAsync({type:"blob"});
     const url=URL.createObjectURL(blob);
-    out.innerHTML='<a class="dl" href="'+url+'" download="'+zipName+'">⬇ Download '+zipName+'</a>';
-    log("Done! Click the download link above.");
+    out.innerHTML='<a class="dl" href="'+url+'" download="'+zipName+'">Download '+zipName+'</a>';
+    log("Done! Click the download link above, then unzip into the app's voice_clips/ folder.");
   }catch(e){
     log("ERROR: "+(e && e.message ? e.message : e));
     log("If it failed to load the voice, check your internet and try again.");
@@ -166,9 +190,83 @@ async function generate(list, zipName){
 go.addEventListener("click", ()=>generate(PHRASES, "communicake-audio.zip"));
 goNew.addEventListener("click", ()=>generate(NEW_PHRASES, "communicake-new-audio.zip"));
 
+/* Generate the sentence PARTS: each phrase once + each name once. The app stitches
+   them together at tap time. Phrase parts get a short trailing pad so they join
+   smoothly onto the name; name parts get a normal tail since they end the sentence. */
+const goParts=document.getElementById("goParts");
+async function generateParts(){
+  go.disabled=true; goNew.disabled=true; goParts.disabled=true; out.innerHTML=""; logEl.textContent="Starting...";
+  const voiceId=document.getElementById("voice").value;
+  try{
+    log("Loading voice: "+voiceId+" (first time downloads the model, please wait)...");
+    const zip=new JSZip();
+    let n=0;
+    for(const it of ALL_CLIPS){
+      const synthText = synthTextFor(it.say);
+      const pad = padFor(it.say);
+      const wav=await padWav(await tts.predict({ text: synthText, voiceId }), pad.lead, pad.tail);
+      zip.file(it.file+".wav", wav);
+      n++; log("("+n+"/"+ALL_CLIPS.length+") "+it.file);
+    }
+    log("Zipping "+n+" clips...");
+    const blob=await zip.generateAsync({type:"blob"});
+    const url=URL.createObjectURL(blob);
+    out.innerHTML='<a class="dl" href="'+url+'" download="communicake-audio.zip">Download communicake-audio.zip</a>';
+    log("Done! Unzip these into the app's audio/ folder (and capacitor-app/www/audio/ for the APK), then rebuild.");
+  }catch(e){
+    log("ERROR: "+(e && e.message ? e.message : e));
+    log("If it failed to load the voice, check your internet and try again.");
+  }
+  go.disabled=false; goNew.disabled=false; goParts.disabled=false;
+}
+goParts.addEventListener("click", generateParts);
+
+/* THE EASY BUTTON: make the 17 parts and write them straight into a folder you
+   pick (choose capacitor-app/www/audio). One run = one voice, so they all match.
+   Resume skips ones already there, so re-running only fills in what's missing. */
+const goPartsSave=document.getElementById("goPartsSave");
+async function savePartsToFolder(){
+  if(!window.showDirectoryPicker){
+    log("This browser can't save into a folder. Use Chrome or Edge — or use the zip button below.");
+    return;
+  }
+  let dir;
+  try{ dir = await window.showDirectoryPicker(); }
+  catch(e){ log("Folder choice cancelled."); return; }
+  goPartsSave.disabled=true; goParts.disabled=true; out.innerHTML="";
+  const voiceId=document.getElementById("voice").value;
+  const resume=document.getElementById("resume").checked;
+  logEl.textContent="Saving all "+ALL_CLIPS.length+" clips into the folder you chose, all in the "+voiceId+" voice...";
+  log("Loading voice: "+voiceId+" (first time downloads the model, please wait)...");
+  let ok=0, skip=0, fail=0, i=0;
+  for(const it of ALL_CLIPS){
+    i++;
+    const name = it.file+".wav";
+    try{
+      if(resume){
+        try{ await dir.getFileHandle(name); skip++; log("("+i+"/"+ALL_CLIPS.length+") already there, skipped "+name); continue; }
+        catch(_){ /* not there yet - make it */ }
+      }
+      const synthText = synthTextFor(it.say);
+      const pad = padFor(it.say);
+      const wav = await padWav(await tts.predict({ text: synthText, voiceId }), pad.lead, pad.tail);
+      const fh = await dir.getFileHandle(name, { create:true });
+      const w  = await fh.createWritable();
+      await w.write(wav); await w.close();
+      ok++; log("("+i+"/"+ALL_CLIPS.length+") saved "+name);
+    }catch(e){
+      fail++; log("("+i+"/"+ALL_CLIPS.length+") FAILED "+it.say+" - "+(e&&e.message?e.message:e));
+    }
+  }
+  log("Done. Made "+ok+", already-had "+skip+", failed "+fail+". Now rebuild the app. "+
+      "If any failed, just click the button again: it only redoes the missing ones.");
+  goPartsSave.disabled=false; goParts.disabled=false;
+}
+goPartsSave.addEventListener("click", savePartsToFolder);
+
 /* Writes each clip straight into a folder you choose, one at a time, as it's
-   made. Anything finished before a crash is already saved, and a clip that
-   fails is skipped instead of stopping the whole run. */
+   made. Choose the app's voice_clips folder. Anything finished before a crash is
+   already saved, and a clip that fails is skipped instead of stopping the run. */
 const goDir=document.getElementById("goDir");
 goDir.addEventListener("click", async ()=>{
   if(!window.showDirectoryPicker){
@@ -179,7 +277,7 @@ goDir.addEventListener("click", async ()=>{
   try{ dir = await window.showDirectoryPicker(); }
   catch(e){ log("Folder choice cancelled."); return; }
   go.disabled=true; goNew.disabled=true; goDir.disabled=true; out.innerHTML="";
-  logEl.textContent="Saving into the folder you chose…";
+  logEl.textContent="Saving into the folder you chose (pick the app's audio folder)...";
   const voiceId=document.getElementById("voice").value;
   const resume=document.getElementById("resume").checked;
   let ok=0, skip=0, fail=0, i=0;
@@ -189,20 +287,20 @@ goDir.addEventListener("click", async ()=>{
     try{
       if(resume){
         try{ await dir.getFileHandle(name); skip++; log("("+i+"/"+PHRASES.length+") already there, skipped "+name); continue; }
-        catch(_){ /* not there yet — make it */ }
+        catch(_){ /* not there yet - make it */ }
       }
-      const base = spoken(text);
-      const synthText = /[.!?,:;]$/.test(base) ? base : base + ".";
-      const wav = await padWav(await tts.predict({ text: synthText, voiceId }));
+      const synthText = synthTextFor(text);
+      const pad = padFor(text);
+      const wav = await padWav(await tts.predict({ text: synthText, voiceId }), pad.lead, pad.tail);
       const fh = await dir.getFileHandle(name, { create:true });
       const w  = await fh.createWritable();
       await w.write(wav); await w.close();
       ok++; log("("+i+"/"+PHRASES.length+") saved "+name);
     }catch(e){
-      fail++; log("("+i+"/"+PHRASES.length+") FAILED "+text+" — "+(e&&e.message?e.message:e)+"  (reload the page and run again to continue)");
+      fail++; log("("+i+"/"+PHRASES.length+") FAILED "+text+" - "+(e&&e.message?e.message:e)+"  (reload the page and run again to continue)");
     }
   }
-  log("Finished. Made "+ok+", already-had "+skip+", failed "+fail+". If it crashed or some failed: reload the page and click this again — with Resume ticked it only does the missing ones.");
+  log("Finished. Made "+ok+", already-had "+skip+", failed "+fail+". If it crashed or some failed: reload the page and click this again - with Resume ticked it only does the missing ones.");
   go.disabled=false; goNew.disabled=false; goDir.disabled=false;
 });
 
@@ -210,14 +308,14 @@ document.getElementById("goOne").addEventListener("click", async ()=>{
   const text=document.getElementById("one").value.trim();
   if(!text){ log("Type a phrase first."); return; }
   const voiceId=document.getElementById("voice").value;
-  out.innerHTML=""; log("Generating: "+text+" …");
+  out.innerHTML=""; log("Generating: "+text+" ...");
   try{
-    const base = spoken(text);
-    const synthText = /[.!?,:;]$/.test(base) ? base : base + ".";
-    const wav=await padWav(await tts.predict({ text: synthText, voiceId }));
+    const synthText = synthTextFor(text);
+    const pad = padFor(text);
+    const wav=await padWav(await tts.predict({ text: synthText, voiceId }), pad.lead, pad.tail);
     const url=URL.createObjectURL(wav);
-    out.innerHTML='<a class="dl" href="'+url+'" download="'+slug(text)+'.wav">⬇ Download '+slug(text)+'.wav</a>';
-    log("Done. Save it as "+slug(text)+".wav into your voice_clips folder.");
+    out.innerHTML='<a class="dl" href="'+url+'" download="'+slug(text)+'.wav">Download '+slug(text)+'.wav</a>';
+    log("Done. Save it as "+slug(text)+".wav into the app's voice_clips folder (the app reads from there).");
   }catch(e){ log("ERROR: "+(e&&e.message?e.message:e)); }
 });
 </script>
